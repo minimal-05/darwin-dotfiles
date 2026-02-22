@@ -1,0 +1,53 @@
+hyper = cmd + alt + ctrl
+
+# opening applications
+hyper - return : /Applications/kitty.app/
+hyper - g : /Applications/Firefox.app/
+hyper - e : /Applications/ForkLift.app/
+
+
+## toggle window fullscreen zoom
+hyper - f : yabai -m window --toggle zoom-fullscreen
+
+# moving spaces
+hyper - 1 : yabai -m space --focus 1
+hyper - 2 : yabai -m space --focus 2
+hyper - 3 : yabai -m space --focus 3
+hyper - 4 : yabai -m space --focus 4
+hyper - 5 : yabai -m space --focus 5
+hyper - 6 : yabai -m space --focus 6
+hyper - 7 : yabai -m space --focus 7
+hyper - 8 : yabai -m space --focus 8
+hyper - 9 : yabai -m space --focus 9
+hyper - 0 : yabai -m space --focus 10
+
+# moving windws to spaces
+hyper + shift - 1 : yabai -m window --space 1
+hyper + shift - 2 : yabai -m window --space 2
+hyper + shift - 3 : yabai -m window --space 3
+hyper + shift - 4 : yabai -m window --space 4
+hyper + shift - 5 : yabai -m window --space 5
+hyper + shift - 6 : yabai -m window --space 6
+hyper + shift - 7 : yabai -m window --space 7
+hyper + shift - 8 : yabai -m window --space 8
+hyper + shift -  9 : yabai -m window --space 9
+hyper + shift - 0 : yabai -m window --space 10
+
+
+
+### unused ###
+
+## focus monitor
+#ctrl + alt - x  : yabai -m display --focus last
+#ctrl + alt - z  : yabai -m display --focus prev || yabai -m display --focus last
+#ctrl + alt - c  : yabai -m display --focus next || yabai -m display --focus first
+#ctrl + alt - 1  : yabai -m display --focus 1
+#ctrl + alt - 2  : yabai -m display --focus 2
+#ctrl + alt - 3  : yabai -m display --focus 3
+
+## focus display
+#ctrl + cmd - 1 : yabai -m window --display 1 yabai -m display --focus 1
+#ctrl + cmd - 2 : yabai -m window --display 2 yabai -m display --focus 2
+#ctrl + cmd - 3 : yabai -m window --display 3 yabai -m display --focus 3
+
+
