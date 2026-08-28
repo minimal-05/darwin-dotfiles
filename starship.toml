@@ -1,0 +1,31 @@
+# Minimal end-4 style: directory pill + branch, arrow on its own line
+add_newline = false
+
+format = """
+$directory$git_branch$cmd_duration
+  $character"""
+
+[character]
+success_symbol = "[ ](bold fg:243)"
+error_symbol = "[ ](bold fg:203)"
+
+[directory]
+home_symbol = " ~"
+read_only = "  "
+style = "bold fg:183"
+truncation_length = 2
+truncation_symbol = ".../"
+format = '[$path]($style)'
+
+[git_branch]
+symbol = "󰘬 "
+truncation_length = 12
+format = " [$symbol$branch](fg:245)"
+
+[cmd_duration]
+min_time = 0
+show_milliseconds = true
+format = " [󰪢 took $duration](fg:245)"
+
+[package]
+disabled = true
