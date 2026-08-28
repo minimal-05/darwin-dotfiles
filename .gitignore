@@ -1,0 +1,21 @@
+# secrets — gh stores an OAuth token in hosts.yml
+gh/
+*.token
+*_token
+.DS_Store
+
+# editor / tool state, not config
+nvim/lazy-lock.json
+**/*.log
+
+# backup litter — git is the backup now
+*.bak
+*.bak.*
+*.backup
+*-bash.bak/
+*.orig
+*.bak-*
+*.quickshell-version
+
+# compiled helper binaries — rebuild from the .swift/.c sources beside them
+sketchybar/helpers/**/bin/

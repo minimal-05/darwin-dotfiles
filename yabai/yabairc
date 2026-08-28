@@ -2,6 +2,8 @@
 
 sudo yabai --load-sa
 yabai -m signal --add event=dock_did_restart action="sudo yabai --load-sa"
+yabai -m signal --add label=sbar_space_created event=space_created action="sketchybar --trigger spaces_refresh"
+yabai -m signal --add label=sbar_space_destroyed event=space_destroyed action="sketchybar --trigger spaces_refresh"
 
 yabai -m config mouse_follows_focus off \
   focus_follows_mouse autofocus \
@@ -18,6 +20,7 @@ yabai -m config mouse_follows_focus off \
   mouse_action1 move \
   mouse_action2 resize \
   mouse_drop_action swap \
+  external_bar all:46:0 \
   top_padding 8 \
   bottom_padding 8 \
   left_padding 8 \
@@ -25,10 +28,11 @@ yabai -m config mouse_follows_focus off \
   window_gap 10
 
 # Exclude problematic apps from being managed:
-yabai -m rule --add app="^(LuLu|Calculator|Software Update|Exam.net|Dictionary|VLC|System Preferences|System Settings|zoom.us|Photo Booth|Archive Utility|Python|LibreOffice|App Store|Steam|Alfred|Activity Monitor)$" manage=off
+yabai -m rule --add app="^(LuLu|Calculator|Autodesk Fusion|Fusion|Software Update|Exam.net|Dictionary|VLC|System Preferences|System Settings|zoom.us|Photo Booth|Archive Utility|Python|LibreOffice|App Store|Steam|Alfred|Activity Monitor|Simulator|Tailscale|Karabiner-Elements)$" manage=off
 yabai -m rule --add label="Finder" app="^Finder$" title="(Co(py|nnect)|Move|Info|Pref)" manage=off
 yabai -m rule --add label="Safari" app="^Safari$" title="^(General|(Tab|Password|Website|Extension)s|AutoFill|Se(arch|curity)|Privacy|Advance)$" manage=off
 yabai -m rule --add label="About This Mac" app="System Information" title="About This Mac" manage=off
 yabai -m rule --add label="Select file to save to" app="^Inkscape$" title="Select file to save to" manage=off
-
+yabai -m rule --add bundle="^com.apple.iphonesimulator$" manage=off
 yabai -m config layout bsp
+yabai -m rule --apply

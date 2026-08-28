@@ -52,18 +52,21 @@ ctrl + alt + cmd + shift - 0 : yabai -m window --space 10
 #ctrl + cmd - 1 : yabai -m window --display 1 yabai -m display --focus 1
 #ctrl + cmd - 2 : yabai -m window --display 2 yabai -m display --focus 2
 #ctrl + cmd - 3 : yabai -m window --display 3 yabai -m display --focus 3
-# --- quickshell bindings (managed by qs-install-keybinds) ---
-ctrl + alt + cmd - i        : /Users/tylerearly/Projects/quickshell-macos/bin/qs-settings
-ctrl + alt + cmd - tab      : /Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc search workspacesToggle
-ctrl + alt + cmd - space    : /Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc search toggle
-cmd - space                 : /Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc search toggle
-ctrl + alt + cmd - a        : /Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc sidebarLeft toggle
-ctrl + alt + cmd - s        : /Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc sidebarRight toggle
-ctrl + alt + cmd - m        : /Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc mediaControls toggle
-ctrl + alt + cmd - j        : /Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc bar toggle
-ctrl + alt + cmd - k        : /Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc osk toggle
-ctrl + alt + cmd - p        : /Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc wallpaperSelector toggle
-ctrl + alt + cmd - e        : /Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc session toggle
-ctrl + alt + cmd - 0x2C     : /Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc cheatsheet toggle
-ctrl + alt + cmd + shift - s: /Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc region screenshot
-# --- end quickshell bindings ---
+
+# --- quickshell (added by claude; remove this block to revert) ---
+# end-4 binds these to SUPER on Linux via Hyprland global shortcuts. macOS has
+# no equivalent, so these call the shell's IPC socket instead.
+# ctrl+alt+cmd is the Super stand-in already used throughout this file.
+# Keys already taken above (return g o n f l t 1-0) are avoided.
+ctrl + alt + cmd - i        : ~/Projects/quickshell-macos/bin/qs-settings
+ctrl + alt + cmd - tab      : ~/Projects/quickshell-macos/bin/qs-ipc search workspacesToggle
+ctrl + alt + cmd - space    : ~/Projects/quickshell-macos/bin/qs-ipc search toggle
+ctrl + alt + cmd - a        : ~/Projects/quickshell-macos/bin/qs-ipc sidebarLeft toggle
+ctrl + alt + cmd - s        : ~/Projects/quickshell-macos/bin/qs-ipc sidebarRight toggle
+ctrl + alt + cmd - m        : ~/Projects/quickshell-macos/bin/qs-ipc mediaControls toggle
+ctrl + alt + cmd - j        : ~/Projects/quickshell-macos/bin/qs-ipc bar toggle
+ctrl + alt + cmd - k        : ~/Projects/quickshell-macos/bin/qs-ipc osk toggle
+ctrl + alt + cmd - p        : ~/Projects/quickshell-macos/bin/qs-ipc wallpaperSelector toggle
+ctrl + alt + cmd - e        : ~/Projects/quickshell-macos/bin/qs-ipc session toggle
+ctrl + alt + cmd - 0x2C     : ~/Projects/quickshell-macos/bin/qs-ipc cheatsheet toggle
+ctrl + alt + cmd + shift - s: ~/Projects/quickshell-macos/bin/qs-ipc region screenshot

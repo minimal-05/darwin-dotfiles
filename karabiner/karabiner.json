@@ -1,0 +1,252 @@
+{
+    "profiles": [
+        {
+            "complex_modifications": {
+                "rules": [
+                    {
+                        "manipulators": [
+                            {
+                                "description": "Change left_control to command+control+option; tap alone opens the overview.",
+                                "from": {
+                                    "key_code": "left_control",
+                                    "modifiers": {
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "key_code": "left_command",
+                                        "modifiers": [
+                                            "left_control",
+                                            "left_option"
+                                        ]
+                                    }
+                                ],
+                                "type": "basic",
+                                "to_if_alone": [
+                                    {
+                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc search workspacesToggle"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "description": "Volume/brightness keys drive the Quickshell OSD (macOS never sees the key, so no native HUD)",
+                        "manipulators": [
+                            {
+                                "type": "basic",
+                                "from": {
+                                    "key_code": "f1",
+                                    "modifiers": {
+                                        "optional": [
+                                            "shift",
+                                            "option",
+                                            "command",
+                                            "control",
+                                            "caps_lock"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc brightness decrement"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "basic",
+                                "from": {
+                                    "key_code": "f2",
+                                    "modifiers": {
+                                        "optional": [
+                                            "shift",
+                                            "option",
+                                            "command",
+                                            "control",
+                                            "caps_lock"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc brightness increment"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "basic",
+                                "from": {
+                                    "key_code": "f10",
+                                    "modifiers": {
+                                        "optional": [
+                                            "shift",
+                                            "option",
+                                            "command",
+                                            "control",
+                                            "caps_lock"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc audio mute"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "basic",
+                                "from": {
+                                    "key_code": "f11",
+                                    "modifiers": {
+                                        "optional": [
+                                            "shift",
+                                            "option",
+                                            "command",
+                                            "control",
+                                            "caps_lock"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc audio decrement"
+                                    }
+                                ],
+                                "to_after_key_up": [
+                                    {
+                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc audio release"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "basic",
+                                "from": {
+                                    "key_code": "f12",
+                                    "modifiers": {
+                                        "optional": [
+                                            "shift",
+                                            "option",
+                                            "command",
+                                            "control",
+                                            "caps_lock"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc audio increment"
+                                    }
+                                ],
+                                "to_after_key_up": [
+                                    {
+                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc audio release"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "basic",
+                                "from": {
+                                    "consumer_key_code": "volume_increment",
+                                    "modifiers": {
+                                        "optional": [
+                                            "shift",
+                                            "option",
+                                            "command",
+                                            "control",
+                                            "caps_lock"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc audio increment"
+                                    }
+                                ],
+                                "to_after_key_up": [
+                                    {
+                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc audio release"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "basic",
+                                "from": {
+                                    "consumer_key_code": "volume_decrement",
+                                    "modifiers": {
+                                        "optional": [
+                                            "shift",
+                                            "option",
+                                            "command",
+                                            "control",
+                                            "caps_lock"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc audio decrement"
+                                    }
+                                ],
+                                "to_after_key_up": [
+                                    {
+                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc audio release"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "basic",
+                                "from": {
+                                    "consumer_key_code": "mute",
+                                    "modifiers": {
+                                        "optional": [
+                                            "shift",
+                                            "option",
+                                            "command",
+                                            "control",
+                                            "caps_lock"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc audio mute"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "name": "Default profile",
+            "selected": true,
+            "simple_modifications": [
+                {
+                    "from": {
+                        "key_code": "caps_lock"
+                    },
+                    "to": [
+                        {
+                            "key_code": "left_control"
+                        }
+                    ]
+                },
+                {
+                    "from": {
+                        "key_code": "right_command"
+                    },
+                    "to": [
+                        {
+                            "key_code": "left_control"
+                        }
+                    ]
+                }
+            ],
+            "virtual_hid_keyboard": {
+                "keyboard_type_v2": "jis"
+            }
+        }
+    ]
+}
