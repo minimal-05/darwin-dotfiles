@@ -1,35 +1,40 @@
 # darwin-dotfiles — where things live
 
-This repo (`~/.config`, remote `minimal-05/darwin-dotfiles`) is the **canonical
-home for all live config**. If a config file is loaded by a running program, it
-lives here and nowhere else.
+This repo (`~/.config`) is the **canonical home for live config**. If a config
+file is loaded by a running program, it lives here — with two exceptions below,
+which are their own repos because they carry build steps of their own.
 
-## The quickshell split — read this before editing any .qml
+## Three repos, not one
 
-Three directories have "quickshell" in the name. They are not copies of each
-other, and only the first holds config:
-
-| Path | What it is | Edit it? |
+| Path | Repo | Holds |
 |---|---|---|
-| `~/.config/quickshell` | **The shell config.** `qs-switch mine` runs `shell.qml` from here. | **Yes — this is the only place.** |
-| `~/Projects/quickshell-macos` | The *runtime*: the built `bin/quickshell` binary, the `qs-*` launcher scripts, shims, end-4 example. | Only for scripts/binary, never for shell config. |
-| `~/Projects/quickshell-src` | Upstream C++ checkout + our unpushed **Cocoa backend** work. | Only for C++/backend changes. |
+| `~/.config` | `darwin-dotfiles` | everything here — yabai, skhd, karabiner, kitty, nvim, borders, btop, nnn, starship, **and the quickshell shell config** |
+| `~/.config/sketchybar` | `sketchybar` | the bar. Nested repo, **gitignored here** — do not `git add` it |
+| `~/Projects/quickshell-macos` | `quickshell-macos` | the C++ Cocoa fork **and** its `bin/qs-*` launchers |
 
-`~/Projects/quickshell-macos/shell` is a **symlink** to `~/.config/quickshell`.
-It is not a second copy — do not "fix" it by replacing it with a directory.
+`./install.sh` clones the other two and wires them up.
 
-`~/Projects/qs-macos-spike` is a stale upstream checkout with no Cocoa backend.
-Nothing uses it. Do not edit it; prefer `~/Projects/quickshell-src`.
+## The quickshell split — read before editing any .qml
+
+- **Bar, pills, services** → `~/.config/quickshell` (here, in this repo).
+- **C++ backend, launchers, shims** → `~/Projects/quickshell-macos`.
+
+`~/Projects/quickshell-macos/shell` is a **symlink** back to
+`~/.config/quickshell`. It is not a second copy — do not replace it with a
+directory.
+
+`~/Projects/qs-macos-spike` is a stale checkout with no Cocoa backend and
+nothing uses it. Don't edit it.
 
 ## Rules
 
-- Changing the bar, pills, or services → `~/.config/quickshell`, then commit here.
-- Changing how the shell is launched/built → `~/Projects/quickshell-macos/bin`.
-- Changing the C++ backend → `~/Projects/quickshell-src`, then `qs-dev`.
-- Never point a script at `~/.claude/jobs/*/tmp`. Those are scratch dirs that get
-  deleted with the job; two scripts used to build from one and nearly lost the
-  whole Cocoa backend.
-- Commit config changes here rather than leaving them untracked. Untracked files
-  have no history, so two sessions editing the same file silently overwrite each
-  other — that is what this layout exists to prevent.
-- `gh/` is gitignored: `hosts.yml` holds an OAuth token. Keep it that way.
+- Commit config changes rather than leaving them untracked. Untracked files have
+  no history, so two sessions editing one file silently overwrite each other —
+  that is what this layout exists to prevent.
+- Never point a script at `~/.claude/jobs/*/tmp`. Those are scratch dirs deleted
+  with the job; two scripts once built from one.
+- `karabiner.json` and `skhd/skhdrc` call `qs-ipc` by **absolute path** because
+  Karabiner does not expand `~`. `install.sh` rewrites them; keep it that way.
+- `gh/` is gitignored — `hosts.yml` holds an OAuth token.
+- Compiled helpers and built binaries are gitignored everywhere. The sources and
+  the compiler calls that build them are committed instead.
