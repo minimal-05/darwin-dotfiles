@@ -38,7 +38,8 @@ say "SketchyBar"
 if [ -d sketchybar/.git ]; then
   git -C sketchybar pull --ff-only --quiet || true
 else
-  rm -rf sketchybar
+  # Don't clobber a config someone already has here.
+  [ -e sketchybar ] && mv sketchybar "sketchybar.backup.$(date +%s)"
   git clone --quiet https://github.com/minimal-05/sketchybar.git sketchybar
 fi
 ./sketchybar/install.sh
