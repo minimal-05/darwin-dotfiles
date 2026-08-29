@@ -82,7 +82,6 @@ Singleton {
 
             property JsonObject policies: JsonObject {
                 property int ai: 1 // 0: No | 1: Yes | 2: Local
-                property int weeb: 1 // 0: No | 1: Open | 2: Closet
             }
 
             property JsonObject ai: JsonObject {
@@ -144,6 +143,11 @@ Singleton {
                     property bool enableAppsAndShell: true
                     property bool enableQtApps: true
                     property bool enableTerminal: true
+                    // macOS: scripts/colors/apply-apps.py reads these three.
+                    // enableQtApps and terminalGenerationProps below are only
+                    // read by the Linux scripts and do nothing here.
+                    property bool enableFirefox: true
+                    property bool enableVscodium: true
                     property JsonObject terminalGenerationProps: JsonObject {
                         property real harmony: 0.6
                         property real harmonizeThreshold: 100
@@ -355,7 +359,7 @@ Singleton {
                 // the pointer to the last row of the output. macOS is less
                 // generous about the bottom edge, and a 2px target that only
                 // sometimes catches reads as a dock that only sometimes opens.
-                property real hoverRegionHeight: 8
+                property real hoverRegionHeight: 20
                 property bool pinnedOnStartup: false
                 property bool hoverToReveal: true // When false, only reveals on empty workspace
                 property list<string> pinnedApps: [ // IDs of pinned entries
@@ -532,14 +536,6 @@ Singleton {
                 }
                 property JsonObject ai: JsonObject {
                     property bool textFadeIn: false
-                }
-                property JsonObject booru: JsonObject {
-                    property bool allowNsfw: false
-                    property string defaultProvider: "yandere"
-                    property int limit: 20
-                    property JsonObject zerochan: JsonObject {
-                        property string username: "[unset]"
-                    }
                 }
                 property JsonObject cornerOpen: JsonObject {
                     property bool enable: true
