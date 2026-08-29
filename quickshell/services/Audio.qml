@@ -1,158 +1,246 @@
 pragma Singleton
-
+pragma ComponentBehavior: Bound
+import qs.modules.common
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Services.Pipewire
 
-// Output volume and device. AppleScript drives the system volume without any
-// permission prompt; SwitchAudioSource names and switches the output device.
-//
-// This is the honest subset of what Quickshell.Services.Pipewire exposes on
-// Linux: there is no node/link graph and no per-application volume here.
+/**
+ * A nice wrapper for default Pipewire audio sink and source.
+ */
 Singleton {
     id: root
 
-    property int volume: 0            // 0-100
-    property bool muted: false
-    property string deviceName: ""
-    property list<string> devices: []
-    property double lastChange: 0
-
-    readonly property string icon: {
-        if (muted || volume === 0)
-            return "󰝟";
-        if (volume < 34)
-            return "󰕿";
-        if (volume < 67)
-            return "󰖀";
-        return "󰕾";
+    // Misc props
+    property bool ready: Pipewire.defaultAudioSink?.ready ?? false
+    property PwNode sink: Pipewire.defaultAudioSink
+    property PwNode source: Pipewire.defaultAudioSource
+    readonly property real hardMaxValue: 2.00 // People keep joking about setting volume to 5172% so...
+    property string audioTheme: Config.options.sounds.theme
+    property real value: sink?.audio.volume ?? 0
+    
+    function friendlyDeviceName(node) {
+        return (node.nickname || node.description || Translation.tr("Unknown"));
+    }
+    function appNodeDisplayName(node) {
+        return (node.properties["application.name"] || node.description || node.name)
     }
 
-    // Not `int`: callers pass fractional notch positions, and QML truncates a
-    // real on the way into an int parameter, which would bias every step down.
-    function setVolume(value: real): void {
-        const clamped = Math.max(0, Math.min(100, Math.round(value)));
-        if (clamped === root.volume)
+    // Lists
+    function correctType(node, isSink) {
+        return (node.isSink === isSink) && node.audio
+    }
+    function appNodes(isSink) {
+        return Pipewire.nodes.values.filter((node) => { // Should be list<PwNode> but it breaks ScriptModel
+            return root.correctType(node, isSink) && node.isStream
+        })
+    }
+    function devices(isSink) {
+        return Pipewire.nodes.values.filter(node => {
+            return root.correctType(node, isSink) && !node.isStream
+        })
+    }
+    readonly property list<var> outputAppNodes: root.appNodes(true)
+    readonly property list<var> inputAppNodes: root.appNodes(false)
+    readonly property list<var> outputDevices: root.devices(true)
+    readonly property list<var> inputDevices: root.devices(false)
+
+    // Signals
+    signal sinkProtectionTriggered(string reason);
+
+    // Controls
+    function toggleMute() {
+        Audio.sink.audio.muted = !Audio.sink.audio.muted
+    }
+
+    function toggleMicMute() {
+        Audio.source.audio.muted = !Audio.source.audio.muted
+    }
+
+    // Steps are spaced on a curve rather than evenly. Quiet is where you want
+    // fine control; up loud, a couple of percent is inaudible. This gives about
+    // 2 points per press near the bottom and 9 near the top, still 16 presses
+    // end to end. `curve` is the knob: 1.0 is macOS's own even 1/16 notches,
+    // higher stretches the quiet end further.
+    //
+    // bin/qs-volume repeats this formula for when the shell is not running.
+    // Change the two together.
+    readonly property real curve: 1.5
+    readonly property int volumeSteps: 16
+
+    function __volumeToStep(vol: real): real {
+        return Math.pow(Math.max(0, Math.min(1, vol)), 1 / root.curve) * root.volumeSteps;
+    }
+
+    function __stepToVolume(n: real): real {
+        return Math.pow(Math.max(0, Math.min(root.volumeSteps, n)) / root.volumeSteps, root.curve);
+    }
+
+    function stepVolume(dir: int) {
+        if (!Audio.sink?.audio) return;
+        const cur = Audio.value;
+        const next = root.__stepToVolume(Math.round(root.__volumeToStep(cur)) + dir);
+        // Volume is reported in whole percent, so a step smaller than one point
+        // would round away and the press would do nothing. Only reachable if
+        // `curve` is tuned up, but that is exactly when it would bite.
+        // The old decrement also had no lower clamp and could go negative.
+        const smallest = 0.01;
+        Audio.sink.audio.volume = Math.abs(next - cur) < smallest
+            ? Math.max(0, Math.min(1, cur + dir * smallest))
+            : next;
+    }
+
+    // Single step. Scroll wheels and buttons use these, and they must never
+    // start a ramp: nothing sends them a matching release.
+    function incrementVolume() {
+        root.stepVolume(1);
+    }
+
+    function decrementVolume() {
+        root.stepVolume(-1);
+    }
+
+    // Holding a volume key has to repeat here, not upstream: Karabiner fires on
+    // key-down only, and the consumer volume keys do not auto-repeat at all, so
+    // holding one used to do exactly nothing. It now sends one call on press and
+    // one on release, and this timer does the ramping in between.
+    property int volumeRampDir: 0
+
+    function startVolumeRamp(dir: int) {
+        // The F-keys auto-repeat while the consumer volume keys do not, so a
+        // hold arrives as either one press or a stream of them. Absorb the
+        // extra presses; the ramp below already owns the repeat.
+        if (volumeRamp.running && root.volumeRampDir === dir)
             return;
-        root.volume = clamped;
-        root.lastChange = Date.now();
-        // macOS unmutes as soon as you move the volume, by key or by slider.
-        if (root.muted)
-            root.toggleMute();
-        // Each osascript spawn costs ~90ms, far slower than a scroll burst or a
-        // drag emits. Push the latest value on a timer instead of firing one
-        // process per event, which would drop writes and rubber-band the value.
-        pusher.restart();
+        root.volumeRampDir = dir;
+        root.stepVolume(dir); // the press itself always steps once
+        volumeRamp.ticks = 0;
+        volumeRamp.interval = volumeRamp.startDelay;
+        volumeRamp.restart();
     }
 
-    // macOS moves output volume in 1/16 notches (6.25 points), which is what the
-    // F11/F12 keys and the menubar slider land on. Snap to the same grid so our
-    // steps match the system's instead of drifting off it.
-    readonly property real notch: 100 / 16
-
-    // Wheel deltas are in eighths of a degree; 120 is one physical detent, which
-    // is worth exactly one notch. Scaling by that rather than gating on it keeps
-    // a trackpad's stream of small deltas moving the volume immediately instead
-    // of sitting in a dead zone until they add up.
-    property real subPoint: 0
-
-    function stepVolume(delta: real): void {
-        const amount = delta / 120 * root.notch + root.subPoint;
-        const whole = Math.trunc(amount);
-        // Carry the leftover fraction so slow scrolling still accumulates.
-        root.subPoint = amount - whole;
-        if (whole !== 0)
-            root.setVolume(root.volume + whole);
-    }
-
-    function toggleMute(): void {
-        root.muted = !root.muted;
-        root.lastChange = Date.now();
-        muter.exec(["osascript", "-e", `set volume output muted ${root.muted}`]);
-    }
-
-    function setDevice(name: string): void {
-        switcher.exec(["SwitchAudioSource", "-s", name]);
-        refresh();
-    }
-
-    function refresh(): void {
-        stateProc.running = true;
-        deviceProc.running = true;
-    }
-
-    Process {
-        id: setter
-    }
-
-    Process {
-        id: muter
+    function stopVolumeRamp() {
+        volumeRamp.stop();
     }
 
     Timer {
-        id: pusher
+        id: volumeRamp
 
-        interval: 50
-        onTriggered: setter.exec(["osascript", "-e", `set volume output volume ${root.volume}`])
-    }
+        readonly property int startDelay: 400 // hold this long before repeating
+        property int ticks: 0
 
-    Process {
-        id: switcher
-    }
-
-    Process {
-        id: stateProc
-
-        running: true
-        command: ["osascript", "-e", "set s to (get volume settings)\nreturn (output volume of s as string) & \",\" & (output muted of s as string)"]
-
-        stdout: StdioCollector {
-            onStreamFinished: {
-                // A read in flight during our own write returns the stale value.
-                if (Date.now() - root.lastChange < 1500)
-                    return;
-                const parts = text.trim().split(",");
-                if (parts.length < 2)
-                    return;
-                const vol = parseInt(parts[0], 10);
-                if (!isNaN(vol))
-                    root.volume = vol;
-                root.muted = parts[1].trim() === "true";
-            }
-        }
-    }
-
-    Process {
-        id: deviceProc
-
-        running: true
-        command: ["SwitchAudioSource", "-c"]
-
-        stdout: StdioCollector {
-            onStreamFinished: root.deviceName = text.trim()
-        }
-    }
-
-    Process {
-        id: deviceListProc
-
-        command: ["SwitchAudioSource", "-a", "-t", "output"]
-
-        stdout: StdioCollector {
-            onStreamFinished: root.devices = text.trim().split("\n").filter(l => l.length > 0)
-        }
-    }
-
-    function refreshDevices(): void {
-        deviceListProc.running = true;
-    }
-
-    // Nothing pushes volume changes to us, so poll. Cheap, and slow enough that
-    // dragging our own slider never fights the poller.
-    Timer {
-        interval: 2000
-        running: true
         repeat: true
-        onTriggered: root.refresh()
+        interval: startDelay
+        onTriggered: {
+            interval = 90;
+            // A key-up that never arrives must not ramp forever.
+            if (++volumeRamp.ticks > 120) {
+                volumeRamp.stop();
+                return;
+            }
+            root.stepVolume(root.volumeRampDir);
+        }
+    }
+
+    function setDefaultSink(node) {
+        Pipewire.preferredDefaultAudioSink = node;
+    }
+
+    function setDefaultSource(node) {
+        Pipewire.preferredDefaultAudioSource = node;
+    }
+
+    // Internals
+    PwObjectTracker {
+        objects: [sink, source]
+    }
+
+    Connections { // Protection against sudden volume changes
+        target: sink?.audio ?? null
+        property bool lastReady: false
+        property real lastVolume: 0
+        function onVolumeChanged() {
+            if (!Config.options.audio.protection.enable) return;
+            const newVolume = sink.audio.volume;
+            // when resuming from suspend, we should not write volume to avoid pipewire volume reset issues
+            if (isNaN(newVolume) || newVolume === undefined || newVolume === null) {
+                lastReady = false;
+                lastVolume = 0;
+                return;
+            }
+            if (!lastReady) {
+                lastVolume = newVolume;
+                lastReady = true;
+                return;
+            }
+            const maxAllowedIncrease = Config.options.audio.protection.maxAllowedIncrease / 100; 
+            const maxAllowed = Config.options.audio.protection.maxAllowed / 100;
+
+            if (newVolume - lastVolume > maxAllowedIncrease) {
+                sink.audio.volume = lastVolume;
+                root.sinkProtectionTriggered(Translation.tr("Illegal increment"));
+            } else if (newVolume > maxAllowed || newVolume > root.hardMaxValue) {
+                root.sinkProtectionTriggered(Translation.tr("Exceeded max allowed"));
+                sink.audio.volume = Math.min(lastVolume, maxAllowed);
+            }
+            lastVolume = sink.audio.volume;
+        }
+    }
+
+    // macOS ships no freedesktop sound theme under /usr/share/sounds and no
+    // ffplay. The stock alert sounds are /System/Library/Sounds/*.aiff and
+    // afplay is part of the base install, so the names end-4 uses are mapped
+    // onto those.
+    readonly property var systemSoundNames: ({
+        "dialog-warning": "Basso",
+        "dialog-error": "Basso",
+        "dialog-information": "Tink",
+        "suspend-error": "Sosumi",
+        "complete": "Glass",
+        "power-plug": "Bottle",
+        "power-unplug": "Pop",
+        "alarm-clock-elapsed": "Submarine",
+        "bell": "Ping",
+        "message": "Ping",
+        "device-added": "Tink",
+        "device-removed": "Tink"
+    })
+
+    function playSystemSound(soundName) {
+        // sounds.theme names a freedesktop theme, which has no macOS analogue;
+        // an unmapped name is passed through so a stock macOS sound also works.
+        const macSound = root.systemSoundNames[soundName] ?? soundName;
+        Quickshell.execDetached([
+            "afplay",
+            `/System/Library/Sounds/${macSound}.aiff`
+        ]);
+    }
+
+    // External trigger points. On Linux the volume keys reach these through
+    // Hyprland's GlobalShortcut protocol; on macOS Karabiner grabs the media
+    // keys before the system sees them and calls in over IPC instead, which is
+    // also what keeps macOS from drawing its own volume HUD.
+    IpcHandler {
+        target: "audio"
+
+        // Key-down. Steps once immediately, then ramps if the key is held
+        // until release() arrives.
+        function increment() {
+            root.startVolumeRamp(1);
+        }
+
+        function decrement() {
+            root.startVolumeRamp(-1);
+        }
+
+        function mute() {
+            root.toggleMute();
+        }
+
+        // Sent on key-up, ending a hold started by increment/decrement.
+        function release() {
+            root.stopVolumeRamp();
+        }
     }
 }
