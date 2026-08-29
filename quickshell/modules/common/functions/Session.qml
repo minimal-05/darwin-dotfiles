@@ -7,6 +7,10 @@ Singleton {
     id: root
 
     function closeAllWindows() {
+        // On macOS the System Events verbs behind bin/loginctl quit every app
+        // themselves, with their save prompts; a SIGTERM from here skips those.
+        if (Platform.isMacOS)
+            return;
         HyprlandData.windowList.map(w => w.pid).forEach(pid => {
             Quickshell.execDetached(["kill", pid]);
         });
@@ -26,7 +30,12 @@ Singleton {
 
     function logout() {
         closeAllWindows();
-        Quickshell.execDetached(["pkill", "-i", "Hyprland"]);
+        // Killing Hyprland is the logout on Linux; macOS has no compositor to
+        // kill, so bin/loginctl hands the verb to System Events.
+        if (Platform.isMacOS)
+            Quickshell.execDetached(["loginctl", "terminate-session"]);
+        else
+            Quickshell.execDetached(["pkill", "-i", "Hyprland"]);
     }
 
     function launchTaskManager() {
