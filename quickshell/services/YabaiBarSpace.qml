@@ -37,16 +37,12 @@ Singleton {
     function load() {}
 
     // The gap the user's windows keep from the screen edges. Matches
-    // bin/qs-switch, which sets the same value before the shell starts. The
-    // bar's own edge gets it too, on top of the reserved extent, so the space
-    // under the bar reads the same as the other three sides.
+    // bin/qs-switch, which sets the same value before the shell starts. Every
+    // edge gets it, the bar's own included on top of the reserved extent, so a
+    // window sits the same distance from the bar as from the other three
+    // sides -- including Hug, where the bar's corner curve then lands on that
+    // strip of wallpaper instead of on the window.
     readonly property int gap: 8
-
-    // How much of that gap goes on the bar's own edge. Only cornerStyle 0 (Hug)
-    // wants none: it draws the bar's corners curving into the window below, so
-    // the window has to touch the bar or the curve lands on wallpaper. Float
-    // and Plain both want the same gap as every other edge.
-    readonly property int barEdge: Config.options.bar.cornerStyle === 0 ? 0 : root.gap
 
     readonly property bool vertical: Config.options.bar.vertical
     // bar.bottom doubles as "right" for a vertical bar -- see the anchors in
@@ -67,10 +63,14 @@ Singleton {
 
     readonly property list<string> settings: [
         `external_bar all:${root.atTop ? root.extent : 0}:${root.atBottom ? root.extent : 0}`,
-        `top_padding ${root.atTop ? root.barEdge : root.gap}`,
-        `bottom_padding ${root.atBottom ? root.barEdge : root.gap}`,
-        `left_padding ${root.atLeft ? root.extent + root.barEdge : root.gap}`,
-        `right_padding ${root.atRight ? root.extent + root.barEdge : root.gap}`
+        `top_padding ${root.gap}`,
+        `bottom_padding ${root.gap}`,
+        `left_padding ${root.atLeft ? root.extent + root.gap : root.gap}`,
+        `right_padding ${root.atRight ? root.extent + root.gap : root.gap}`,
+        // yabairc seeds this too, for the desktop before the shell is up. Owned
+        // here as well so the gap between two windows cannot drift away from
+        // the gap around them.
+        `window_gap ${root.gap}`
     ]
     readonly property string desired: root.settings.join(" | ")
 
