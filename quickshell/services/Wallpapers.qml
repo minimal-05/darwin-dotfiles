@@ -68,11 +68,21 @@ Singleton {
     }
 
     function randomFromCurrentFolder(darkMode = Appearance.m3colors.darkmode) {
-        if (folderModel.count === 0) return;
-        const randomIndex = Math.floor(Math.random() * folderModel.count);
-        const filePath = folderModel.get(randomIndex, "filePath");
+        // showDirs is on, so the model lists subfolders alongside the images.
+        // Picking one of those and handing it to select() navigated into the
+        // folder instead of setting a wallpaper, which read as the random
+        // button doing nothing. Draw from the images only.
+        const files = [];
+        for (let i = 0; i < folderModel.count; i++) {
+            if (!folderModel.get(i, "fileIsDir")) files.push(folderModel.get(i, "filePath"));
+        }
+        if (files.length === 0) return;
+        const filePath = files[Math.floor(Math.random() * files.length)];
         print("Randomly selected wallpaper:", filePath);
-        root.select(filePath, darkMode);
+        // Straight to apply: this is known to be a file, so the `test -d` hop
+        // through the shared selectProc buys nothing, and skipping it means a
+        // second click cannot overwrite the first one's pending filePath.
+        root.apply(filePath, darkMode);
     }
 
     Process {
