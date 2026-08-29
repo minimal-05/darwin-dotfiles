@@ -9,11 +9,13 @@ import Quickshell.Io
 /**
  * Simple polled resource usage service with RAM, Swap, and CPU usage.
  *
- * macOS port: /proc/meminfo and /proc/stat do not exist here. A helper command
- * emits the same MemTotal/MemAvailable/SwapTotal/SwapFree keys so the parsing
- * below is unchanged, and adds a precomputed CpuUsage fraction — macOS exposes
- * no cumulative CPU tick counter to the shell, so there is nothing to diff the
- * way /proc/stat is diffed. The property surface is identical to upstream.
+ * Linux reads /proc/meminfo and /proc/stat. macOS has neither, so the same
+ * counters come from `qs-sysstats` (quickshell-macos/bin, on PATH like `qs`):
+ * one JSON line of since-boot CPU ticks from host_statistics64, memory from
+ * the VM statistics and swap from vm.swapusage. The ticks are cumulative like
+ * the /proc/stat cpu line, so both branches diff consecutive samples the same
+ * way. This replaces `top -l 1 -n 0`, which cost ~0.26 s of CPU per sample.
+ * The property surface is identical to upstream; sizes stay in kB.
  */
 Singleton {
     id: root
@@ -65,58 +67,94 @@ Singleton {
         updateCpuUsageHistory()
     }
 
+    // Upstream's /proc/stat arithmetic, shared by both branches: usage over the
+    // sample window = 1 - d(idle)/d(total); the first sample only seeds it.
+    function updateCpuFromTicks(total, idle) {
+        if (previousCpuStats) {
+            const totalDiff = total - previousCpuStats.total
+            const idleDiff = idle - previousCpuStats.idle
+            cpuUsage = totalDiff > 0 ? (1 - idleDiff / totalDiff) : 0
+        }
+        previousCpuStats = { total, idle }
+    }
+
 	Timer {
 		interval: 1
         running: true
         repeat: true
 		onTriggered: {
-            statProc.running = true
+            if (Platform.isMacOS) {
+                statProc.running = true
+            } else {
+                // Reload files
+                fileMeminfo.item.reload()
+                fileStat.item.reload()
+
+                // Parse memory and swap usage
+                const textMeminfo = fileMeminfo.item.text()
+                memoryTotal = Number(textMeminfo.match(/MemTotal: *(\d+)/)?.[1] ?? 1)
+                memoryFree = Number(textMeminfo.match(/MemAvailable: *(\d+)/)?.[1] ?? 0)
+                swapTotal = Number(textMeminfo.match(/SwapTotal: *(\d+)/)?.[1] ?? 1)
+                swapFree = Number(textMeminfo.match(/SwapFree: *(\d+)/)?.[1] ?? 0)
+
+                // Parse CPU usage
+                const textStat = fileStat.item.text()
+                const cpuLine = textStat.match(/^cpu\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/)
+                if (cpuLine) {
+                    const stats = cpuLine.slice(1).map(Number)
+                    const total = stats.reduce((a, b) => a + b, 0)
+                    const idle = stats[3]
+                    updateCpuFromTicks(total, idle)
+                }
+
+                root.updateHistories()
+            }
             interval = Config.options?.resources?.updateInterval ?? 3000
         }
 	}
 
+    // /proc only exists on Linux; left inactive on macOS so nothing opens a missing path.
+	Loader { id: fileMeminfo; active: !Platform.isMacOS; sourceComponent: FileView { path: "/proc/meminfo" } }
+    Loader { id: fileStat; active: !Platform.isMacOS; sourceComponent: FileView { path: "/proc/stat" } }
+
     Process {
         id: statProc
-        running: true
-        // Memory "used" follows Activity Monitor's definition, not top's PhysMem
-        // line (which counts file cache as used): (active + wired + compressor) *
-        // pagesize. MemAvailable is total minus that. CPU usage comes from
-        // `top -l 1 -n 0`, which computes an instantaneous (not since-boot) idle
-        // percentage internally -- macOS has no cumulative tick counter like
-        // /proc/stat to diff ourselves.
-        command: ["/bin/sh", "-c", "PAGE=$(sysctl -n hw.pagesize); TOTAL_KB=$(( $(sysctl -n hw.memsize) / 1024 )); vm_stat | awk -v page=\"$PAGE\" -v total=\"$TOTAL_KB\" '/Pages active/{gsub(/\\./,\"\",$3);act=$3} /Pages wired down/{gsub(/\\./,\"\",$4);wired=$4} /occupied by compressor/{gsub(/\\./,\"\",$5);comp=$5} END{used=(act+wired+comp)*page/1024; printf \"MemTotal: %d\\nMemAvailable: %d\\n\", total, total-used}'; sysctl -n vm.swapusage | awk '{gsub(/M/,\"\",$3); gsub(/M/,\"\",$9); printf \"SwapTotal: %d\\nSwapFree: %d\\n\", $3*1024, $9*1024}'; top -l 1 -n 0 | awk -F'[:,]' '/CPU usage/{for(i=1;i<=NF;i++) if($i ~ /idle/){gsub(/[^0-9.]/,\"\",$i); printf \"CpuUsage: %.4f\\n\", 1-($i/100)}}'"]
+        // Sizes arrive in bytes. "used" is (active + wired + compressor) pages,
+        // Activity Monitor's definition rather than top's PhysMem line, which
+        // counts file cache as used; available is total minus that.
+        command: ["qs-sysstats"]
         stdout: StdioCollector {
             id: statCollector
             onStreamFinished: {
-                const text = statCollector.text
-
-                root.memoryTotal = Number(text.match(/MemTotal: *(\d+)/)?.[1] ?? 1)
-                root.memoryFree = Number(text.match(/MemAvailable: *(\d+)/)?.[1] ?? 0)
-                root.swapTotal = Number(text.match(/SwapTotal: *(\d+)/)?.[1] ?? 1)
-                root.swapFree = Number(text.match(/SwapFree: *(\d+)/)?.[1] ?? 0)
-
-                const cpu = text.match(/CpuUsage: *([\d.]+)/)
-                if (cpu) root.cpuUsage = Number(cpu[1])
-
+                const s = JSON.parse(statCollector.text)
+                root.memoryTotal = s.mem.total / 1024
+                root.memoryFree = s.mem.available / 1024
+                root.swapTotal = s.swap.total / 1024
+                root.swapFree = s.swap.free / 1024
+                root.updateCpuFromTicks(s.cpu.user + s.cpu.system + s.cpu.idle + s.cpu.nice, s.cpu.idle)
                 root.updateHistories()
             }
         }
     }
 
-    // No max-frequency figure is exposed on Apple silicon, so name the chip
-    // instead of inventing a GHz number.
     Process {
         id: findCpuMaxFreqProc
         environment: ({
             LANG: "C",
             LC_ALL: "C"
         })
-        command: ["/bin/sh", "-c", "sysctl -n machdep.cpu.brand_string 2>/dev/null || echo CPU"]
+        // No max-frequency figure is exposed on Apple silicon, so name the chip
+        // instead of inventing a GHz number.
+        command: Platform.isMacOS
+            ? ["/bin/sh", "-c", "sysctl -n machdep.cpu.brand_string 2>/dev/null || echo CPU"]
+            : ["bash", "-c", "lscpu | grep 'CPU max MHz' | awk '{print $4}'"]
         running: true
         stdout: StdioCollector {
             id: outputCollector
             onStreamFinished: {
-                root.maxAvailableCpuString = outputCollector.text.trim() || "--"
+                root.maxAvailableCpuString = Platform.isMacOS
+                    ? (outputCollector.text.trim() || "--")
+                    : (parseFloat(outputCollector.text) / 1000).toFixed(0) + " GHz"
             }
         }
     }
