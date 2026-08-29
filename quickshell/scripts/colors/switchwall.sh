@@ -155,4 +155,14 @@ if [ -n "$image" ] && [ -f "$image" ] && [ -f "$SHELL_CONFIG_FILE" ]; then
     fi
 fi
 
+# ---- repaint the apps that follow the palette ----------------------------
+# The shell watches colors.json and repaints itself; kitty and Firefox cannot,
+# so the palette has to be written into their own config formats. Reaching for
+# a sibling of this script by name is safe -- unlike the walk up to bin/ that
+# used to break here, apply-apps.py moves whenever switchwall.sh does.
+#
+# Non-fatal on purpose: a colour change that repainted the desktop but not the
+# terminal is still a colour change, and should not report itself as failed.
+"$(dirname "${BASH_SOURCE[0]}")/apply-apps.py" || echo "switchwall: app theming failed" >&2
+
 echo "switchwall: mode=$mode_flag scheme=$scheme image=${image:-<none>}"
