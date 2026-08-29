@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Apply the generated Material palette to kitty and Firefox.
+"""Apply the generated Material palette to kitty, Firefox and VSCodium.
 
-    apply-apps.py                  themes both from the current colors.json
+    apply-apps.py                  themes all three from the current colors.json
     apply-apps.py --only kitty     just one of them
     apply-apps.py --colors PATH    read a different palette
 
 switchwall.sh calls this after qs-matugen writes colors.json, so a wallpaper
-or mode change repaints the terminal and the browser along with the bar.
+or mode change repaints the terminal, the browser and the editor along with
+the bar.
 
 Upstream does this in applycolor.sh, which cannot work here: it sed-s a
 template with GNU `sed -i`, signals `pidof kitty`, writes escape sequences
@@ -31,6 +32,8 @@ KITTY_THEME = Path.home() / ".config/kitty/theme.conf"
 KITTY_TEMPLATE = CONFIG / "scripts/colors/terminal/kitty-theme.conf"
 SCHEME_BASE = CONFIG / "scripts/colors/terminal/scheme-base.json"
 
+VSCODIUM = Path.home() / "Library/Application Support/VSCodium/User/settings.json"
+
 FIREFOX = Path.home() / "Library/Application Support/Firefox"
 # Written beside userChrome.css rather than into it: that file is hand-edited,
 # and a generated file that overwrites hand-edits is a trap.
@@ -53,6 +56,44 @@ def argb(hex_colour: str) -> int:
 
 def to_hex(value: int) -> str:
     return "#{:02x}{:02x}{:02x}".format((value >> 16) & 0xFF, (value >> 8) & 0xFF, value & 0xFF)
+
+
+def rgb(hex_colour: str) -> tuple:
+    v = hex_colour.lstrip("#")
+    return tuple(int(v[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def luminance(hex_colour: str) -> float:
+    channels = []
+    for c in (x / 255 for x in rgb(hex_colour)):
+        channels.append(c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4)
+    r, g, b = channels
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def contrast(a: str, b: str) -> float:
+    hi, lo = sorted((luminance(a), luminance(b)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def readable(colour: str, background: str, target: float = 4.5) -> str:
+    """Lift a colour until it is legible on background, keeping its hue.
+
+    Material's on_* and *_container roles are *background* roles: on a dark
+    surface they are dark. Slots that get used as prompt foreground therefore
+    land at a contrast of about 2 and vanish. Blending toward white (or black
+    on a light surface) keeps the hue and buys the contrast back.
+    """
+    if contrast(colour, background) >= target:
+        return colour
+    end = (255, 255, 255) if luminance(background) < 0.5 else (0, 0, 0)
+    src = rgb(colour)
+    for step in range(1, 21):
+        t = step / 20
+        mixed = "#{:02x}{:02x}{:02x}".format(*(round(a + (b - a) * t) for a, b in zip(src, end)))
+        if contrast(mixed, background) >= target:
+            return mixed
+    return "#{:02x}{:02x}{:02x}".format(*end)
 
 
 def terminal_colours(primary: str, dark: bool) -> dict:
@@ -114,6 +155,21 @@ def apply_kitty(colours: dict, dark: bool) -> str:
     body += "\n# Body colours, straight from the shell's palette.\n"
     body += "".join(f"{k:24}{v}\n" for k, v in overrides.items())
 
+    # Slots 232-255 are prompt foreground -- starship writes `fg:245` for the
+    # branch and the timing, `fg:243` for the arrow -- but the template fills
+    # them from on_*/container roles, which are background roles and come out
+    # near-black on a dark surface. Unlifted, colour245 sat at a contrast of
+    # 2.1 against the background: the text was there and could not be read.
+    # The 0-15 ANSI slots are deliberately left alone; those are a real colour
+    # scheme, and a "black" that is not black is its own bug.
+    background = overrides["background"]
+    body = re.sub(
+        r"^(color2[3-5]\d\s+)(#[0-9a-fA-F]{6})",
+        lambda m: m.group(1) + readable(m.group(2), background),
+        body,
+        flags=re.M,
+    )
+
     KITTY_THEME.write_text(f"# {BANNER}\n\n{body}")
 
     # kitty re-reads its config on SIGUSR1 -- no remote-control socket needed.
@@ -121,44 +177,56 @@ def apply_kitty(colours: dict, dark: bool) -> str:
     return f"kitty: wrote {KITTY_THEME}" + (" and reloaded" if reloaded else " (not running)")
 
 
-def firefox_profile() -> Path | None:
+def firefox_profiles() -> list:
+    """Every profile in profiles.ini, not just the default one.
+
+    This used to follow [Install...] Default=, on the theory that it is the
+    profile Firefox launches. With ShowSelector=1 that is not true -- the
+    profile that launches is whichever one is picked at startup -- so theming
+    only that one left the others painted in stock Firefox colours. Writing a
+    stylesheet into each of them is cheaper than guessing.
+
+    IsRelative=0 gives an absolute Path=; `FIREFOX / "/abs"` yields "/abs", so
+    both forms fall out of the same join.
+    """
     ini = FIREFOX / "profiles.ini"
     if not ini.is_file():
-        return None
-    # [Install...] Default= is the profile Firefox actually launches, which is
-    # not always the one flagged Default=1 in the [Profile...] sections.
-    install = re.search(r"^\[Install[^\]]*\]\s*\nDefault=(.+)$", ini.read_text(), re.M)
-    if not install:
-        return None
-    profile = FIREFOX / install.group(1).strip()
-    return profile if profile.is_dir() else None
+        return []
+    paths = re.findall(r"^Path=(.+)$", ini.read_text(), re.M)
+    return [d for d in (FIREFOX / p.strip() for p in paths) if d.is_dir()]
 
 
-def apply_firefox(colours: dict) -> str:
-    profile = firefox_profile()
-    if profile is None:
+def apply_firefox(colours: dict, dark: bool) -> str:
+    profiles = firefox_profiles()
+    if not profiles:
         return "firefox: no profile found, skipped"
 
-    chrome = profile / "chrome"
-    chrome.mkdir(exist_ok=True)
-    (chrome / FF_SHEET).write_text(firefox_css(colours))
+    css = firefox_css(colours, dark)
+    for profile in profiles:
+        chrome = profile / "chrome"
+        chrome.mkdir(exist_ok=True)
+        (chrome / FF_SHEET).write_text(css)
 
-    # userChrome.css is the only file Firefox loads; ours has to be imported
-    # from it, and @import must precede any rule in the file.
-    user_chrome = chrome / "userChrome.css"
-    existing = user_chrome.read_text() if user_chrome.is_file() else ""
-    if FF_IMPORT not in existing:
-        user_chrome.write_text(f"{FF_IMPORT}\n{existing}")
-        note = "imported from userChrome.css"
-    else:
-        note = "already imported"
-    return f"firefox: wrote {chrome / FF_SHEET} ({note}) -- restart Firefox to see it"
+        # userChrome.css is the only file Firefox loads; ours has to be
+        # imported from it, and @import must precede any rule in the file.
+        user_chrome = chrome / "userChrome.css"
+        existing = user_chrome.read_text() if user_chrome.is_file() else ""
+        if FF_IMPORT not in existing:
+            user_chrome.write_text(f"{FF_IMPORT}\n{existing}")
+
+    names = ", ".join(p.name for p in profiles)
+    return f"firefox: themed {len(profiles)} profile(s) [{names}] -- restart Firefox to see it"
 
 
-def firefox_css(c: dict) -> str:
+def firefox_css(c: dict, dark: bool) -> str:
     return f"""/* {BANNER} */
 
 :root {{
+  /* Chrome widgets Firefox draws itself -- scrollbars, dropdowns, checkboxes
+     -- take their colours from this, not from the variables below. Without
+     it they stay light on a dark toolbar. */
+  color-scheme: {"dark" if dark else "light"};
+
   --qs-surface: {c['surface']};
   --qs-surface-container: {c['surface_container']};
   --qs-surface-high: {c['surface_container_high']};
@@ -188,6 +256,19 @@ def firefox_css(c: dict) -> str:
   --sidebar-background-color: var(--qs-surface) !important;
   --sidebar-text-color: var(--qs-on-surface) !important;
   --focus-outline-color: var(--qs-primary) !important;
+
+  /* Text and icons. The block above is almost all surfaces; without these the
+     labels and the toolbar glyphs keep their stock colour and disappear into
+     the repainted chrome. */
+  --lwt-tab-text: var(--qs-on-surface) !important;
+  --lwt-toolbar-field-color: var(--qs-on-surface) !important;
+  --lwt-toolbar-field-focus-color: var(--qs-on-surface) !important;
+  --toolbar-field-focus-color: var(--qs-on-surface) !important;
+  --toolbarbutton-icon-fill: var(--qs-on-surface) !important;
+  --toolbarbutton-icon-fill-attention: var(--qs-primary) !important;
+  --toolbarbutton-hover-background: var(--qs-surface-high) !important;
+  --panel-description-color: var(--qs-on-surface-variant) !important;
+  --urlbar-box-text-color: var(--qs-on-surface) !important;
 }}
 
 /* The chrome itself. One surface behind the whole toolbox, with the
@@ -209,7 +290,17 @@ def firefox_css(c: dict) -> str:
   background: var(--qs-surface-high) !important;
   border-color: var(--qs-primary) !important;
 }}
-#urlbar-input, #urlbar-input::placeholder {{ color: var(--qs-on-surface) !important; }}
+#urlbar-input, #searchbar .searchbar-textbox {{ color: var(--qs-on-surface) !important; }}
+#urlbar-input::placeholder {{ color: var(--qs-on-surface-variant) !important; }}
+
+/* Tab labels. .tab-content[selected] below only covers the selected tab; the
+   rest inherit whatever the stock theme had and go unreadable. */
+.tab-label {{ color: var(--qs-on-surface) !important; }}
+.tabbrowser-tab:not([selected]) .tab-label {{ color: var(--qs-on-surface-variant) !important; }}
+toolbarbutton, .toolbarbutton-text, #urlbar .urlbar-icon {{
+  color: var(--qs-on-surface) !important;
+  fill: var(--qs-on-surface) !important;
+}}
 
 .tab-background[selected] {{ background: var(--qs-primary-container) !important; }}
 .tab-content[selected] {{ color: var(--qs-on-primary-container) !important; }}
@@ -229,11 +320,191 @@ menuitem:hover, menu:hover, toolbarbutton:hover {{
 """
 
 
+def apply_vscodium(colours: dict, dark: bool) -> str:
+    """Repaint VSCodium through workbench.colorCustomizations.
+
+    No generated theme extension and no restart: settings.json is the native
+    override channel and VSCodium re-reads it on write, so the editor repaints
+    with the wallpaper like the bar does. Only our own key is replaced -- the
+    rest of settings.json is hand-written and is left exactly as it was.
+    """
+    if not VSCODIUM.parent.is_dir():
+        return "vscodium: not installed, skipped"
+
+    settings = {}
+    if VSCODIUM.is_file():
+        try:
+            settings = json.loads(VSCODIUM.read_text())
+        except json.JSONDecodeError as exc:
+            # Comments are legal in VS Code's settings.json and json refuses
+            # them. Bailing out beats writing over a file we cannot read.
+            return f"vscodium: settings.json is not plain JSON ({exc}), skipped"
+
+    settings["workbench.colorCustomizations"] = vscodium_colours(colours, dark)
+    VSCODIUM.write_text(json.dumps(settings, indent=4) + "\n")
+    return f"vscodium: wrote {VSCODIUM}"
+
+
+def vscodium_colours(c: dict, dark: bool) -> dict:
+    """Palette roles mapped onto the editor's colour ids.
+
+    Every foreground here is the on_* role that Material pairs with the
+    surface behind it, so the contrast comes from the palette rather than from
+    a guess -- the failure that made the terminal unreadable was pairing an
+    on_* role with a surface it was never meant to sit on.
+    """
+    term = terminal_colours(c["primary"], dark)
+    ansi = ["black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"]
+    colours = {
+        "editor.background": c["surface"],
+        "editor.foreground": c["on_surface"],
+        "editorCursor.foreground": c["primary"],
+        "editor.selectionBackground": c["primary_container"],
+        "editor.lineHighlightBackground": c["surface_container_low"],
+        "editorLineNumber.foreground": c["outline"],
+        "editorLineNumber.activeForeground": c["primary"],
+        "editorWidget.background": c["surface_container"],
+        "editorWidget.foreground": c["on_surface"],
+        "editorWidget.border": c["outline"],
+        "editorGroupHeader.tabsBackground": c["surface_container"],
+        "editorGroup.border": c["outline_variant"],
+
+        "activityBar.background": c["surface_container"],
+        "activityBar.foreground": c["on_surface"],
+        "activityBar.inactiveForeground": c["on_surface_variant"],
+        "activityBar.border": c["outline_variant"],
+        "activityBarBadge.background": c["primary"],
+        "activityBarBadge.foreground": c["on_primary"],
+
+        "sideBar.background": c["surface_container"],
+        "sideBar.foreground": c["on_surface"],
+        "sideBar.border": c["outline_variant"],
+        "sideBarTitle.foreground": c["on_surface_variant"],
+        "sideBarSectionHeader.background": c["surface_container_high"],
+        "sideBarSectionHeader.foreground": c["on_surface"],
+
+        "titleBar.activeBackground": c["surface_container"],
+        "titleBar.activeForeground": c["on_surface"],
+        "titleBar.inactiveBackground": c["surface"],
+        "titleBar.inactiveForeground": c["on_surface_variant"],
+        "titleBar.border": c["outline_variant"],
+
+        "statusBar.background": c["primary_container"],
+        "statusBar.foreground": c["on_primary_container"],
+        "statusBar.border": c["outline_variant"],
+        "statusBar.noFolderBackground": c["surface_container"],
+        "statusBar.noFolderForeground": c["on_surface"],
+        "statusBarItem.remoteBackground": c["primary"],
+        "statusBarItem.remoteForeground": c["on_primary"],
+
+        "tab.activeBackground": c["surface"],
+        "tab.activeForeground": c["on_surface"],
+        "tab.activeBorderTop": c["primary"],
+        "tab.inactiveBackground": c["surface_container"],
+        "tab.inactiveForeground": c["on_surface_variant"],
+        "tab.border": c["outline_variant"],
+
+        "panel.background": c["surface"],
+        "panel.border": c["outline_variant"],
+        "panelTitle.activeForeground": c["on_surface"],
+        "panelTitle.inactiveForeground": c["on_surface_variant"],
+
+        "terminal.background": c["surface"],
+        "terminal.foreground": c["on_surface"],
+        "terminalCursor.foreground": c["primary"],
+        "terminal.selectionBackground": c["primary_container"],
+
+        "list.activeSelectionBackground": c["primary_container"],
+        "list.activeSelectionForeground": c["on_primary_container"],
+        "list.inactiveSelectionBackground": c["surface_container_high"],
+        "list.inactiveSelectionForeground": c["on_surface"],
+        "list.hoverBackground": c["surface_container_high"],
+        "list.hoverForeground": c["on_surface"],
+        "list.highlightForeground": c["primary"],
+
+        "input.background": c["surface_container_high"],
+        "input.foreground": c["on_surface"],
+        "input.border": c["outline"],
+        "input.placeholderForeground": c["on_surface_variant"],
+        "dropdown.background": c["surface_container_high"],
+        "dropdown.foreground": c["on_surface"],
+        "dropdown.border": c["outline"],
+
+        "button.background": c["primary"],
+        "button.foreground": c["on_primary"],
+        "button.hoverBackground": c["primary_dim"],
+        "badge.background": c["primary"],
+        "badge.foreground": c["on_primary"],
+        "focusBorder": c["primary"],
+
+        "quickInput.background": c["surface_container"],
+        "quickInput.foreground": c["on_surface"],
+        "menu.background": c["surface_container"],
+        "menu.foreground": c["on_surface"],
+        "menu.selectionBackground": c["primary_container"],
+        "menu.selectionForeground": c["on_primary_container"],
+        "menu.border": c["outline"],
+
+        "notifications.background": c["surface_container"],
+        "notifications.foreground": c["on_surface"],
+        "notifications.border": c["outline"],
+
+        "editorError.foreground": c["error"],
+        "editorWarning.foreground": c["on_error_container"],
+        "editorInfo.foreground": c["primary"],
+        "widget.border": c["outline_variant"],
+        "scrollbarSlider.background": c["surface_container_highest"],
+        "scrollbarSlider.hoverBackground": c["outline_variant"],
+        "scrollbarSlider.activeBackground": c["outline"],
+    }
+    # The integrated terminal gets the same harmonised ANSI scheme kitty uses,
+    # so a shell looks the same in either place.
+    for i, name in enumerate(ansi):
+        colours[f"terminal.ansi{name.capitalize()}"] = term[f"term{i}"]
+        colours[f"terminal.ansiBright{name.capitalize()}"] = term[f"term{i + 8}"]
+    return colours
+
+
+def self_check() -> int:
+    """apply-apps.py --self-check -- the contrast lift, which is the only
+    part here with arithmetic to get wrong."""
+    dark, light = "#0a0f0e", "#f6faf8"
+
+    # Known-good values are returned untouched.
+    assert readable("#dde8e4", dark) == "#dde8e4"
+
+    # The regression this fixes: outline_variant in a prompt foreground slot.
+    assert contrast("#404a47", dark) < 3
+    assert contrast(readable("#404a47", dark), dark) >= 4.5
+
+    # Every on_*/container role clears the floor, on either surface, and a
+    # lift never overshoots past the end of the ramp.
+    for role in ("#12483f", "#27403b", "#285b51", "#871f21", "#490006", "#2c453f"):
+        for bg in (dark, light):
+            assert contrast(readable(role, bg), bg) >= 4.5, (role, bg)
+
+    # A lift goes toward white on a dark surface and toward black on a light
+    # one -- the direction is what makes it readable rather than merely
+    # different.
+    assert luminance(readable("#12483f", dark)) > luminance("#12483f")
+    assert luminance(readable("#d5f3ff", light)) < luminance("#d5f3ff")
+
+    # Black on black is the worst case and still has to come out legible.
+    assert contrast(readable("#000000", "#000000"), "#000000") >= 4.5
+
+    print("self-check ok")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--colors", default=str(COLORS))
-    ap.add_argument("--only", choices=["kitty", "firefox"])
+    ap.add_argument("--only", choices=["kitty", "firefox", "vscodium"])
+    ap.add_argument("--self-check", action="store_true", help=argparse.SUPPRESS)
     args = ap.parse_args()
+
+    if args.self_check:
+        return self_check()
 
     path = Path(args.colors)
     if not path.is_file():
@@ -243,7 +514,8 @@ def main() -> int:
     dark = MODE.read_text().strip() == "dark" if MODE.is_file() else True
 
     for name, fn in (("kitty", lambda: apply_kitty(colours, dark)),
-                     ("firefox", lambda: apply_firefox(colours))):
+                     ("firefox", lambda: apply_firefox(colours, dark)),
+                     ("vscodium", lambda: apply_vscodium(colours, dark))):
         if args.only in (None, name):
             print(fn())
     return 0
