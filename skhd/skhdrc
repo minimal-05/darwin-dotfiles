@@ -65,5 +65,6 @@ ctrl + alt + cmd - k        : /Users/tylerearly/Projects/quickshell-macos/bin/qs
 ctrl + alt + cmd - p        : /Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc wallpaperSelector toggle
 ctrl + alt + cmd - e        : /Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc session toggle
 ctrl + alt + cmd - 0x2C     : /Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc cheatsheet toggle
+ctrl + alt + cmd - w        : /Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc overlay toggle
 ctrl + alt + cmd + shift - s: /Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc region screenshot
 # --- end quickshell bindings ---
