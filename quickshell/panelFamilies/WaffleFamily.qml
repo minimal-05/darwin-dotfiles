@@ -17,11 +17,11 @@ import qs.modules.waffle.sessionScreen
 import qs.modules.waffle.taskView
 
 // Fallbacks
-import qs.modules.ii.cheatsheet
-import qs.modules.ii.onScreenKeyboard
-import qs.modules.ii.overlay
-import qs.modules.ii.screenTranslator
-import qs.modules.ii.wallpaperSelector
+import qs.modules.cheatsheet
+import qs.modules.onScreenKeyboard
+import qs.modules.overlay
+import qs.modules.screenTranslator
+import qs.modules.wallpaperSelector
 
 Scope {
     PanelLoader { component: WaffleActionCenter {} }

@@ -13,9 +13,9 @@ import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Hyprland
 
-import qs.modules.ii.background.widgets
-import qs.modules.ii.background.widgets.clock
-import qs.modules.ii.background.widgets.weather
+import qs.modules.background.widgets
+import qs.modules.background.widgets.clock
+import qs.modules.background.widgets.weather
 
 Variants {
     id: root

@@ -11,7 +11,7 @@ import QtQuick.Window
 import Quickshell
 import qs.services
 import qs.modules.common
-import qs.modules.ii.finder
+import qs.modules.finder
 
 // The file manager as a standalone application, the same way end-4 ships its
 // settings window. This matters beyond tidiness: a quickshell process that owns
