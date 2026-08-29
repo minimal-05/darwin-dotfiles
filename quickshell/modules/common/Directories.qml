@@ -19,6 +19,7 @@ Singleton {
     readonly property string pictures: StandardPaths.standardLocations(StandardPaths.PicturesLocation)[0]
     readonly property string music: StandardPaths.standardLocations(StandardPaths.MusicLocation)[0]
     readonly property string videos: StandardPaths.standardLocations(StandardPaths.MoviesLocation)[0]
+    readonly property string desktop: StandardPaths.standardLocations(StandardPaths.DesktopLocation)[0]
 
     // Other dirs used by the shell, without "file://"
     property string assetsPath: Quickshell.shellPath("assets")
@@ -26,9 +27,6 @@ Singleton {
     property string favicons: FileUtils.trimFileProtocol(`${Directories.cache}/media/favicons`)
     property string coverArt: FileUtils.trimFileProtocol(`${Directories.cache}/media/coverart`)
     property string tempImages: "/tmp/quickshell/media/images"
-    property string booruPreviews: FileUtils.trimFileProtocol(`${Directories.cache}/media/boorus`)
-    property string booruDownloads: FileUtils.trimFileProtocol(Directories.pictures  + "/homework")
-    property string booruDownloadsNsfw: FileUtils.trimFileProtocol(Directories.pictures + "/homework/🌶️")
     property string latexOutput: FileUtils.trimFileProtocol(`${Directories.cache}/media/latex`)
     property string shellConfig: FileUtils.trimFileProtocol(`${Directories.config}/illogical-impulse`)
     property string shellConfigName: "config.json"
@@ -41,6 +39,12 @@ Singleton {
     property string generatedWallpaperCategoryPath: FileUtils.trimFileProtocol(`${Directories.state}/user/generated/wallpaper/category.txt`)
     property string cliphistDecode: FileUtils.trimFileProtocol(`/tmp/quickshell/media/cliphist`)
     property string screenshotTemp: "/tmp/quickshell/media/screenshot"
+    // Where a fresh capture waits while its thumbnail is in the corner. It is
+    // deliberately not the save directory: dragging the thumbnail out is meant
+    // to leave nothing behind, so the file only reaches ~/Desktop or ~/Movies if
+    // the thumbnail times out. Hidden names are captures still being written.
+    property string captureShelf: "/tmp/quickshell/media/shelf"
+    property string captureShelfThumbs: "/tmp/quickshell/media/shelf-thumbs"
     property string wallpaperSwitchScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/colors/switchwall.sh`)
     property string defaultAiPrompts: Quickshell.shellPath("defaults/ai/prompts")
     property string userAiPrompts: FileUtils.trimFileProtocol(`${Directories.shellConfig}/ai/prompts`)
@@ -58,11 +62,12 @@ Singleton {
         Quickshell.execDetached(["mkdir", "-p", `${shellConfig}`])
         Quickshell.execDetached(["mkdir", "-p", `${favicons}`])
         Quickshell.execDetached(["bash", "-c", `rm -rf '${coverArt}'; mkdir -p '${coverArt}'`])
-        Quickshell.execDetached(["bash", "-c", `rm -rf '${booruPreviews}'; mkdir -p '${booruPreviews}'`])
         Quickshell.execDetached(["bash", "-c", `rm -rf '${latexOutput}'; mkdir -p '${latexOutput}'`])
         Quickshell.execDetached(["bash", "-c", `rm -rf '${cliphistDecode}'; mkdir -p '${cliphistDecode}'`])
         Quickshell.execDetached(["mkdir", "-p", `${aiChats}`])
         Quickshell.execDetached(["mkdir", "-p", `${userActions}`])
         Quickshell.execDetached(["rm", "-rf", `${tempImages}`])
+        Quickshell.execDetached(["mkdir", "-p", `${captureShelf}`])
+        Quickshell.execDetached(["bash", "-c", `rm -rf '${captureShelfThumbs}'; mkdir -p '${captureShelfThumbs}'`])
     }
 }

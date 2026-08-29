@@ -34,5 +34,11 @@ yabai -m rule --add label="Safari" app="^Safari$" title="^(General|(Tab|Password
 yabai -m rule --add label="About This Mac" app="System Information" title="About This Mac" manage=off
 yabai -m rule --add label="Select file to save to" app="^Inkscape$" title="Select file to save to" manage=off
 yabai -m rule --add bundle="^com.apple.iphonesimulator$" manage=off
+
+# Shell surfaces are overlays and the settings window is a dialog -- neither
+# belongs in the tiling layout. qs-switch adds this too, under the same label so
+# the two replace each other; it lives here as well because the bar now starts
+# from launchd at login, where qs-switch never runs.
+yabai -m rule --add label=quickshell app="^quickshell$" manage=off
 yabai -m config layout bsp
 yabai -m rule --apply

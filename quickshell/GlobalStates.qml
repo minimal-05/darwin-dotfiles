@@ -20,6 +20,7 @@ Singleton {
     property bool overlayOpen: false
     property bool overviewOpen: false
     property bool regionSelectorOpen: false
+    property bool screenRecordOverlayOpen: false
     property bool searchOpen: false
     property bool screenLocked: false
     property bool screenLockContainsCharacters: false
@@ -31,7 +32,6 @@ Singleton {
     property bool wallpaperSelectorOpen: false
     property bool workspaceShowNumbers: false
     // Bumped when qs-window-thumbs finishes, so the overview reloads previews.
-    property int windowThumbRevision: 0
     readonly property string windowThumbDir: (Quickshell.env("XDG_RUNTIME_DIR") ?? "/tmp/quickshell") + "/quickshell/thumbs"
 
     onSidebarRightOpenChanged: {

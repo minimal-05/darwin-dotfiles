@@ -201,8 +201,11 @@ PanelWindow {
     Process {
         id: checkRecordingProc
         running: isRecording
-        // macOS records with screencapture -v, not wf-recorder.
-        command: ["pgrep", "-x", "screencapture"]
+        // macOS records with screencapture -v, not wf-recorder. The -v has to be
+        // part of the match: this runs alongside TempScreenshotProcess, which is
+        // a `screencapture` of its own, and matching the bare name reads that
+        // still capture as a recording and cancels the selection.
+        command: ["pgrep", "-fx", "(/[^ ]*)?/?screencapture -v.*"]
         onExited: (exitCode, exitStatus) => {
             root.preparationDone = !screenshotProc.running
             root.recordingShouldStop = (exitCode === 0);
@@ -277,8 +280,6 @@ PanelWindow {
             root.action = root.mouseButton === Qt.RightButton ? RegionSelection.SnipAction.Edit : RegionSelection.SnipAction.Copy;
         }
         
-        const screenshotDir = Config.options.screenSnip.savePath !== "" ? //
-            Config.options.screenSnip.savePath : "";
         var screenshotAction = root.getScreenshotAction();
         const command = ScreenshotAction.getCommand(
             root.regionX * root.monitorScale, //
@@ -287,7 +288,7 @@ PanelWindow {
             root.regionHeight * root.monitorScale, //
             root.screenshotPath, //
             screenshotAction, //
-            screenshotDir
+            root.monitorScale
         )
         Quickshell.execDetached(command);
         if (root.action == RegionSelection.SnipAction.Record || root.action == RegionSelection.SnipAction.RecordWithSound) {
@@ -306,11 +307,26 @@ PanelWindow {
         }
     }
 
-    ScreencopyView { // For freezing
+    // The freeze. Upstream uses a ScreencopyView, but the macOS shim only
+    // captures toplevels — a ShellScreen source never produces a frame, so the
+    // selector sat over the live desktop and everything moved while you were
+    // drawing a box around it. The full-screen PNG the crop is about to be cut
+    // from is already on disk by this point; that is the frozen frame.
+    Image {
         anchors.fill: parent
-        live: false
-        captureSource: root.screen
         visible: root.phase === RegionSelection.Phase.Select
+        // The screen's name carries spaces ("Built-in Retina Display"), which a
+        // bare file:// URL does not survive.
+        source: root.preparationDone ? encodeURI(`file://${root.screenshotPath}`) : ""
+        // Stretch, not PreserveAspectFit: the frozen frame has to line up with
+        // the real screen exactly, and a letterbox would offset every selection
+        // from what is under it.
+        fillMode: Image.Stretch
+        // Decoded on the spot rather than a frame later, so the live desktop is
+        // never visible underneath it, and re-read every time because each snip
+        // writes the same path.
+        asynchronous: false
+        cache: false
 
         focus: root.visible
         Keys.onPressed: (event) => { // Esc to close

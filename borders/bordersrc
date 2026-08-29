@@ -1,3 +1,10 @@
 #!/bin/bash
-# ponytail: static M3 lavender; matugen dynamic colors if you ever want wallpaper-based
-borders active_color=0xffD0BCFF inactive_color=0xff49454F width=5.0 style=round
+# Colours track the matugen scheme (qs-matugen writes colors.json and re-runs
+# this); static M3 lavender is the fallback when no scheme has been generated.
+scheme="$HOME/Library/Preferences/quickshell/State/user/generated/colors.json"
+hex() { sed -n "s/.*\"$1\": *\"#\(......\)\".*/0xff\1/p" "$scheme" 2>/dev/null; }
+
+active=$(hex primary)
+inactive=$(hex outline)
+
+borders active_color="${active:-0xffD0BCFF}" inactive_color="${inactive:-0xff49454F}" width=5.0 style=round

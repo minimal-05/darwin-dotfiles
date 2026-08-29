@@ -40,8 +40,21 @@ Item {
     }
 
     WidgetCanvas {
+        id: canvas
         anchors.fill: parent
-        onClicked: GlobalStates.overlayOpen = false
+
+        // A click dismisses, a drag does not. If a widget's drag loses its grab
+        // partway the release lands here instead of on the widget, and closing
+        // on that is what made dragging a widget dismiss the whole overlay.
+        // Dragging the backdrop is not a dismissal in its own right either.
+        property point pressPoint
+        onPressed: event => canvas.pressPoint = Qt.point(event.x, event.y)
+        onClicked: event => {
+            const moved = Math.abs(event.x - canvas.pressPoint.x)
+                        + Math.abs(event.y - canvas.pressPoint.y);
+            if (moved > 8) return;
+            GlobalStates.overlayOpen = false;
+        }
 
         OverlayTaskbar {
             anchors {

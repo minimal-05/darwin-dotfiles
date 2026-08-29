@@ -129,7 +129,10 @@ Singleton {
     }
 
     function updateLayers() {
-        getLayers.running = true;
+        // Layer surfaces are a Wayland concept with no macOS counterpart, so
+        // this is a constant. It used to be a `sh -c "echo {}"` subprocess,
+        // which updateAll() then paid for on every single event.
+        root.layers = {};
     }
 
     function updateMonitors() {
@@ -208,18 +211,6 @@ Singleton {
             id: monitorsCollector
             onStreamFinished: {
                 root.monitors = root.parseOr(monitorsCollector.text, root.monitors);
-            }
-        }
-    }
-
-    Process {
-        id: getLayers
-        // Layer surfaces are a Wayland concept with no macOS counterpart.
-        command: ["/bin/sh", "-c", "echo '{}'"]
-        stdout: StdioCollector {
-            id: layersCollector
-            onStreamFinished: {
-                root.layers = root.parseOr(layersCollector.text, root.layers);
             }
         }
     }

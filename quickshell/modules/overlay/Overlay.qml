@@ -19,7 +19,15 @@ Scope {
     
     Loader {
         id: overlayLoader
-        active: GlobalStates.overlayOpen || OverlayContext.hasPinnedWidgets
+        // Built once and kept, rather than created and destroyed around every
+        // open. Rebuilding meant a new native window and a fresh panel
+        // registration each time, and the outgoing window outlived the incoming
+        // one -- two full screen panels sat at the same level, with the stale
+        // one's config applied last and winning, so the overlay came up looking
+        // wrong or not at all. Keeping it costs memory and nothing else: Qt
+        // Quick does not render a hidden window, and the widgets read singleton
+        // services that poll for the bar whether the overlay is up or not.
+        active: true
         sourceComponent: PanelWindow {
             id: overlayWindow
             exclusionMode: ExclusionMode.Ignore
@@ -30,7 +38,7 @@ Scope {
             WlrLayershell.layer: WlrLayer.Bottom
             // Use OnDemand for pinned widgets to allow focus switching with mouse clicks
             WlrLayershell.keyboardFocus: GlobalStates.overlayOpen ? WlrKeyboardFocus.Exclusive : (OverlayContext.clickableWidgets.length > 0 ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None)
-            visible: true
+            visible: GlobalStates.overlayOpen || OverlayContext.hasPinnedWidgets
             color: "transparent"
 
             mask: Region {

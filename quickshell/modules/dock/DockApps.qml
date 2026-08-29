@@ -21,11 +21,15 @@ Item {
 
     property Item lastHoveredButton: null
     property bool buttonHovered: false
-    property bool requestDockShow: previewPopup.show
+    property bool requestDockShow: previewPopup.show || dockMenu.visible
 
     Layout.fillHeight: true
     Layout.topMargin: Appearance.sizes.hyprlandGapsOut
     implicitWidth: listView.implicitWidth
+
+    function openMenu(button) {
+        dockMenu.openFor(button.appToplevel, button.desktopEntry, root.popupCenterXForButton(button), root.QsWindow?.window?.height ?? 70);
+    }
 
     function popupCenterXForButton(button) {
         if (!button || !root.QsWindow)
@@ -61,11 +65,16 @@ Item {
         }
     }
 
+    DockMenu {
+        id: dockMenu
+        screen: root.QsWindow?.window?.screen ?? null
+    }
+
     PopupWindow {
         id: previewPopup
         property var appTopLevel: root.lastHoveredButton?.appToplevel
 
-        property bool shouldShow: (popupMouseArea.containsMouse || root.buttonHovered) && appTopLevel && appTopLevel.toplevels && appTopLevel.toplevels.length > 0
+        property bool shouldShow: !dockMenu.visible && (popupMouseArea.containsMouse || root.buttonHovered) && appTopLevel && appTopLevel.toplevels && appTopLevel.toplevels.length > 0
 
         property bool show: false
         property real cachedCenterX: 0
