@@ -24,7 +24,10 @@ Scope {
             id: overlayWindow
             exclusionMode: ExclusionMode.Ignore
             WlrLayershell.namespace: "quickshell:overlay"
-            WlrLayershell.layer: WlrLayer.Overlay
+            // Under application windows, above the desktop. The Cocoa backend maps
+            // WlrLayer.Bottom to PanelLayer::Bottom, which is exactly that; Overlay
+            // (the upstream value) sits above even full screen spaces.
+            WlrLayershell.layer: WlrLayer.Bottom
             // Use OnDemand for pinned widgets to allow focus switching with mouse clicks
             WlrLayershell.keyboardFocus: GlobalStates.overlayOpen ? WlrKeyboardFocus.Exclusive : (OverlayContext.clickableWidgets.length > 0 ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None)
             visible: true
@@ -44,29 +47,13 @@ Scope {
                 right: true
             }
 
-            HyprlandFocusGrab {
-                id: grab
-                windows: [overlayWindow]
-                active: false
-                onCleared: () => {
-                    if (!active) GlobalStates.overlayOpen = false;
-                }
-            }
-
-            Connections {
-                target: GlobalStates
-                function onOverlayOpenChanged() {
-                    delayedGrabTimer.restart();
-                }
-            }
-
-            Timer {
-                id: delayedGrabTimer
-                interval: Appearance.animation.elementMoveFast.duration
-                onTriggered: {
-                    grab.active = GlobalStates.overlayOpen;
-                }
-            }
+            // No focus grab. Upstream dismisses the overlay when a click lands in
+            // another application, which is the right behaviour for a panel that
+            // sits on top of everything: the click was you reaching past it. Now
+            // that it sits underneath, every click on any window is "outside" it,
+            // so the grab would close the widgets the instant you touched
+            // anything -- the opposite of a layer you leave up behind your work.
+            // The keybind toggles it instead.
 
             OverlayContent {
                 id: overlayContent
