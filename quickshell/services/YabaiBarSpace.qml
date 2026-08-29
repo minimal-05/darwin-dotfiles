@@ -57,12 +57,13 @@ Singleton {
     readonly property string desired: root.settings.join(" | ")
 
     // The same numbers as HyprlandData reads back through `reserved`:
-    // [left, top, right, bottom] with external_bar folded into top/bottom.
+    // [left, top, right, bottom], the backend's per-edge zones plus the gap
+    // -- external_bar (top/bottom) and the paddings (left/right) as applied.
     readonly property list<int> reserved: [
-        root.atLeft ? root.extent + root.gap : root.gap,
-        (root.atTop ? root.extent : 0) + root.gap,
-        root.atRight ? root.extent + root.gap : root.gap,
-        (root.atBottom ? root.extent : 0) + root.gap
+        Reservation.left + root.gap,
+        Reservation.top + root.gap,
+        Reservation.right + root.gap,
+        Reservation.bottom + root.gap
     ]
 
     function apply(): void {
