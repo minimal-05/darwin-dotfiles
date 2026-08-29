@@ -29,7 +29,6 @@ ShellRoot {
         ConflictKiller.load()
         Cliphist.refresh()
         Wallpapers.load()
-        WallpaperWatcher.load()
         Updates.load()
         YabaiBarSpace.load()
     }

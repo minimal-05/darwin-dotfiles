@@ -8,6 +8,10 @@
 #   name      the current SSID on one line
 #   strength  signal strength as 0-100
 #   radio     "enabled" or "disabled"
+#   all       every line of the four above, each prefixed with its subcommand
+#             name and a space, from one process. This is what the status tick
+#             runs: one bash instead of four, and the device/port lookups
+#             (networksetup, route) are done once instead of per subcommand.
 #
 # Note: macOS 15 redacts the SSID unless the calling binary has been granted
 # Location Services permission, so `name` may print "<redacted>" while
@@ -34,60 +38,88 @@ port_for() {
 WIFI="$(wifi_device)"
 WIFI="${WIFI:-en0}"
 
+# Resolved lazily and once: `all` needs them for both status and name.
+DEV=""; PORT=""; POWER=""
+resolve_default() {
+    [ -n "$DEV" ] && return
+    DEV="$(default_device)"
+    PORT="$(port_for "$DEV")"
+}
+resolve_power() {
+    [ -n "$POWER" ] && return
+    POWER="$(networksetup -getairportpower "$WIFI" 2>/dev/null)"
+}
+
+print_status() {
+    resolve_default
+    resolve_power
+
+    if [[ "$POWER" != *": On"* ]]; then
+        echo "${1-}wifi:unavailable"
+    elif [[ "$PORT" == Wi-Fi* ]]; then
+        echo "${1-}wifi:connected"
+    else
+        echo "${1-}wifi:disconnected"
+    fi
+
+    [[ -n "$PORT" && "$PORT" != Wi-Fi* ]] && echo "${1-}ethernet:connected"
+
+    # scutil resolves reachability without sending traffic.
+    if scutil -r 1.1.1.1 2>/dev/null | grep -q "Reachable"; then
+        echo "${1-}full"
+    else
+        echo "${1-}none"
+    fi
+}
+
+print_name() {
+    local ssid
+    ssid="$(networksetup -getairportnetwork "$WIFI" 2>/dev/null | sed -n 's/^Current Wi-Fi Network: //p')"
+    if [ -z "$ssid" ]; then
+        resolve_default
+        [ -n "$PORT" ] && ssid="$PORT"
+    fi
+    printf '%s%s\n' "${1-}" "$ssid"
+}
+
+print_strength() {
+    # RSSI in dBm mapped to nmcli's 0-100 scale.
+    #
+    # Read through CoreWLAN (see wifi.py), not system_profiler: the
+    # SPAirPortDataType report scans every channel to build its network
+    # list, which takes ~3s and holds the radio off its associated channel
+    # long enough to stall streaming video. Network.qml calls this on its
+    # status tick, so that was a video hitch on every tick. wifi.py reads the
+    # RSSI the current association already has, without scanning, in ~0.05s.
+    local rssi
+    rssi="$("$HERE/wifi.py" rssi 2>/dev/null)"
+    if [ -z "$rssi" ]; then
+        echo "${1-}0"
+    else
+        awk -v p="${1-}" -v r="$rssi" 'BEGIN{v=2*(r+100); if(v<0)v=0; if(v>100)v=100; printf "%s%d\n", p, v}'
+    fi
+}
+
+print_radio() {
+    resolve_power
+    if [[ "$POWER" == *": On"* ]]; then
+        echo "${1-}enabled"
+    else
+        echo "${1-}disabled"
+    fi
+}
+
 case "${1:-status}" in
-    status)
-        dev="$(default_device)"
-        port="$(port_for "$dev")"
-        power="$(networksetup -getairportpower "$WIFI" 2>/dev/null)"
+    status)   print_status ;;
+    name)     print_name ;;
+    strength) print_strength ;;
+    radio)    print_radio ;;
 
-        if [[ "$power" != *": On"* ]]; then
-            echo "wifi:unavailable"
-        elif [[ "$port" == Wi-Fi* ]]; then
-            echo "wifi:connected"
-        else
-            echo "wifi:disconnected"
-        fi
-
-        [[ -n "$port" && "$port" != Wi-Fi* ]] && echo "ethernet:connected"
-
-        # scutil resolves reachability without sending traffic.
-        if scutil -r 1.1.1.1 2>/dev/null | grep -q "Reachable"; then
-            echo "full"
-        else
-            echo "none"
-        fi
-        ;;
-
-    name)
-        ssid="$(networksetup -getairportnetwork "$WIFI" 2>/dev/null | sed -n 's/^Current Wi-Fi Network: //p')"
-        if [ -z "$ssid" ]; then
-            dev="$(default_device)"
-            port="$(port_for "$dev")"
-            [ -n "$port" ] && ssid="$port"
-        fi
-        printf '%s\n' "$ssid"
-        ;;
-
-    strength)
-        # RSSI in dBm mapped to nmcli's 0-100 scale.
-        #
-        # Read through CoreWLAN (see wifi.py), not system_profiler: the
-        # SPAirPortDataType report scans every channel to build its network
-        # list, which takes ~3s and holds the radio off its associated channel
-        # long enough to stall streaming video. Network.qml calls this on a 10s
-        # tick, so that was a video hitch every 10 seconds. wifi.py reads the
-        # RSSI the current association already has, without scanning, in ~0.05s.
-        rssi="$("$HERE/wifi.py" rssi 2>/dev/null)"
-        if [ -z "$rssi" ]; then
-            echo 0
-        else
-            awk -v r="$rssi" 'BEGIN{v=2*(r+100); if(v<0)v=0; if(v>100)v=100; printf "%d\n", v}'
-        fi
-        ;;
-
-    radio)
-        networksetup -getairportpower "$WIFI" 2>/dev/null \
-            | grep -q ": On" && echo enabled || echo disabled
+    all)
+        print_status "status "
+        print_name "name "
+        print_strength "strength "
+        print_radio "radio "
         ;;
 
     aps)
@@ -125,7 +157,7 @@ case "${1:-status}" in
         ;;
 
     *)
-        echo "usage: network.sh [status|name|strength|radio|device]" >&2
+        echo "usage: network.sh [status|name|strength|radio|all|aps|device]" >&2
         exit 2
         ;;
 esac

@@ -66,9 +66,13 @@ QuickToggleButton {
         }
     }
 
+    // ponytail: the WARP client does ship a macOS warp-cli, but it is not
+    // installed here and the probe is a launch spawn either way. Ceiling: the
+    // toggle never appears on macOS. Upgrade path: probe once via a FileView
+    // on /usr/local/bin/warp-cli instead of gating on the platform.
     Process {
         id: fetchActiveState
-        running: true
+        running: !Platform.isMacOS
         command: ["bash", "-c", "warp-cli status"]
         stdout: StdioCollector {
             id: warpStatusCollector

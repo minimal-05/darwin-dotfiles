@@ -36,9 +36,10 @@ Singleton {
         }
     }
 
+    // checkupdates is pacman-contrib; nothing equivalent to probe for on macOS.
     Process {
         id: checkAvailabilityProc
-        running: Config.ready && Config.options.updates.enableCheck
+        running: Config.ready && Config.options.updates.enableCheck && !Platform.isMacOS
         command: ["which", "checkupdates"]
         onExited: (exitCode, exitStatus) => {
             root.available = (exitCode === 0);

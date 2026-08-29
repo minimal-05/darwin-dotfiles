@@ -17,9 +17,10 @@ QuickToggleButton {
             Quickshell.execDetached(["hyprctl", "reload"])
         }
     }
+    // hyprctl does not exist on macOS; the toggle just starts off.
     Process {
         id: fetchActiveState
-        running: true
+        running: !Platform.isMacOS
         command: ["bash", "-c", `test "$(hyprctl getoption animations:enabled -j | jq ".int")" -ne 0`]
         onExited: (exitCode, exitStatus) => {
             root.toggled = exitCode !== 0 // Inverted because enabled = nonzero exit

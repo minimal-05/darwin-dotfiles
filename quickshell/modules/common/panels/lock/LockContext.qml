@@ -77,9 +77,10 @@ Scope {
         }
     }
 
+    // fprintd is the Linux fingerprint daemon; Touch ID has no CLI to probe.
     Process {
         id: fingerprintCheckProc
-        running: true
+        running: !Platform.isMacOS
         command: ["bash", "-c", "fprintd-list $(whoami)"]
         stdout: StdioCollector {
             id: fingerprintOutputCollector
