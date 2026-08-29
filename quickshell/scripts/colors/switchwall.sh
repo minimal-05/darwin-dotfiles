@@ -108,13 +108,25 @@ if [ -z "$image" ] && [ "$noswitch" -eq 0 ]; then
 fi
 
 if [ -z "$image" ]; then
-    # The live desktop picture wins over the recorded one. On macOS the wallpaper
-    # can be changed from System Settings or by macOS's own rotation, and then
-    # background.wallpaperPath is only whatever the shell last applied — using it
-    # would regenerate the palette from an image that is no longer on screen.
-    image="$(current_wallpaper)"
+    # The recorded wallpaper wins over the live desktop picture.
+    #
+    # It used to be the other way round, on the reasoning that System Settings
+    # or macOS's own rotation could change the picture behind the shell's back.
+    # That reasoning does not survive Spaces. System Events exposes one
+    # "desktop" per *display*, not per Space, so `set picture of every desktop`
+    # only ever repaints the Space you are on, and `get picture of current
+    # desktop` answers with whatever the Space you are on happens to show. On a
+    # machine with several Spaces those disagree permanently, and reading the
+    # live picture here meant a plain `--noswitch` (the light/dark buttons, the
+    # palette picker) re-themed to whichever Space was focused at the time.
+    #
+    # background.wallpaperPath is the wallpaper the shell was actually told to
+    # use, which is the thing the palette should follow. The live picture is
+    # still the fallback for the case the record cannot cover: a first run, or
+    # a config that has never had a wallpaper set.
+    image="$(jq -r '.background.wallpaperPath // ""' "$SHELL_CONFIG_FILE" 2>/dev/null)"
     if [ -z "$image" ] || [ ! -f "$image" ]; then
-        image="$(jq -r '.background.wallpaperPath // ""' "$SHELL_CONFIG_FILE" 2>/dev/null)"
+        image="$(current_wallpaper)"
         [ -n "$image" ] && [ -f "$image" ] || image=""
     fi
 fi
