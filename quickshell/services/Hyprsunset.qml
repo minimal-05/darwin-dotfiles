@@ -129,9 +129,10 @@ Singleton {
         fetchProc.running = true;
     }
 
+    // hyprctl does not exist on macOS; the gamma path is handled in Brightness.
     Process {
         id: fetchProc
-        running: true
+        running: !Platform.isMacOS
         command: ["bash", "-c", "hyprctl hyprsunset temperature"]
         stdout: StdioCollector {
             id: stateCollector

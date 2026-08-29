@@ -58,14 +58,35 @@ Scope { // Scope
         else root.pin = !root.pin;
     }
 
-    Component.onCompleted: {
+    // The content (AI chat, translator, anims) and its window are built the
+    // first time the sidebar opens, not at launch: nothing outside it reads
+    // it while closed. Upstream builds both at launch.
+    // ponytail: once built it stays resident; the window is not torn down on
+    // close. Ceiling: one PanelWindow kept alive after first use. Upgrade
+    // path: detach the content and drop the loader on close.
+    function load() {
+        if (root.sidebarContent) return;
         root.sidebarContent = contentComponent.createObject(null, {
             "scopeRoot": root,
         });
-        sidebarLoader.item.contentParent.children = [root.sidebarContent];
+        const loader = root.detach ? detachedSidebarLoader : sidebarLoader;
+        loader.active = true;
+        loader.item.contentParent.children = [root.sidebarContent];
+    }
+
+    Connections {
+        target: GlobalStates
+        function onSidebarLeftOpenChanged() {
+            if (GlobalStates.sidebarLeftOpen) root.load();
+        }
+    }
+
+    Component.onCompleted: {
+        if (GlobalStates.sidebarLeftOpen) root.load();
     }
 
     onDetachChanged: {
+        if (!root.sidebarContent) return; // nothing built yet; load() picks the right window
         if (root.detach) {
             GlobalFocusGrab.removeDismissable(sidebarLoader.item) // Remove sidebar from the focus grab system
             sidebarContent.parent = null; // Detach content from sidebar
@@ -82,7 +103,7 @@ Scope { // Scope
 
     Loader {
         id: sidebarLoader
-        active: true
+        active: false
         
         sourceComponent: PanelWindow { // Window
             id: panelWindow
@@ -114,6 +135,11 @@ Scope { // Scope
                 item: sidebarLeftBackground
             }
 
+            // Built on first open, so visible is already true at creation and
+            // visibleChanged never fires for it.
+            Component.onCompleted: {
+                if (visible) GlobalFocusGrab.addDismissable(panelWindow);
+            }
             onVisibleChanged: {
                 if (visible) {
                     GlobalFocusGrab.addDismissable(panelWindow);

@@ -41,9 +41,10 @@ Singleton {
         }
     }
 
+    // EasyEffects is a PipeWire client; there is nothing to look for on macOS.
     Process {
         id: fetchAvailabilityProc
-        running: true
+        running: !Platform.isMacOS
         command: ["bash", "-c", "command -v easyeffects || flatpak info com.github.wwmm.easyeffects > /dev/null 2>&1"]
         onExited: (exitCode, exitStatus) => {
             root.available = exitCode === 0
@@ -52,7 +53,7 @@ Singleton {
 
     Process {
         id: fetchActiveStateProc
-        running: true
+        running: !Platform.isMacOS
         command: ["bash", "-c", "pidof easyeffects || flatpak ps | grep com.github.wwmm.easyeffects > /dev/null 2>&1"]
         onExited: (exitCode, exitStatus) => {
             root.active = exitCode === 0

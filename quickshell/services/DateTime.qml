@@ -25,48 +25,45 @@ Singleton {
     property string date: Qt.locale().toString(clock.date, Config.options?.time.dateWithYearFormat ?? "dd/MM/yyyy")
     property string longDate: Qt.locale().toString(clock.date, Config.options?.time.dateFormat ?? "dddd, dd/MM")
     property string collapsedCalendarFormat: Qt.locale().toString(clock.date, "dddd, MMMM dd")
-    property string uptime: "0h, 0m"
 
-    Timer {
-        interval: 10
-        running: true
-        repeat: true
-        onTriggered: {
-            uptimeProc.running = true;
-            interval = Config.options?.resources?.updateInterval ?? 3000;
-        }
+    // Boot instant in epoch milliseconds; 0 until the one-shot read below lands.
+    property real bootTime: 0
+
+    // The boot instant never changes, so it is read once and the uptime is
+    // derived from the clock that already ticks for the time display. Uptime
+    // is shown to the minute and the clock ticks at least that often, so
+    // nothing needs to poll. macOS has no /proc/uptime; kern.boottime is the
+    // equivalent, and /proc/stat's btime line is the same number on Linux.
+    property string uptime: {
+        if (root.bootTime <= 0)
+            return "0h, 0m";
+        const uptimeSeconds = Math.max(0, (clock.date.getTime() - root.bootTime) / 1000);
+        const days = Math.floor(uptimeSeconds / 86400);
+        const hours = Math.floor((uptimeSeconds % 86400) / 3600);
+        const minutes = Math.floor((uptimeSeconds % 3600) / 60);
+
+        let formatted = "";
+        if (days > 0)
+            formatted += `${days}d`;
+        if (hours > 0)
+            formatted += `${formatted ? ", " : ""}${hours}h`;
+        if (minutes > 0 || !formatted)
+            formatted += `${formatted ? ", " : ""}${minutes}m`;
+        return formatted;
     }
 
-    // macOS port: no /proc/uptime. kern.boottime gives the boot instant, so
-    // uptime is now minus that. Emitted in the same "SECONDS IDLE" shape the
-    // parsing below already expects.
     Process {
-        id: uptimeProc
-
+        id: bootTimeProc
         running: true
-        command: ["/bin/sh", "-c", "B=$(sysctl -n kern.boottime | sed -E 's/.*\\{ sec = ([0-9]+).*/\\1/'); echo \"$(( $(date +%s) - B )) 0\""]
+        command: Platform.isMacOS
+            ? ["/usr/sbin/sysctl", "-n", "kern.boottime"]
+            : ["sh", "-c", "awk '/^btime/{print \"sec = \" $2}' /proc/stat"]
 
         stdout: StdioCollector {
-            id: uptimeCollector
-
             onStreamFinished: {
-                const textUptime = uptimeCollector.text;
-                const uptimeSeconds = Number(textUptime.split(" ")[0] ?? 0);
-
-                // Convert seconds to days, hours, and minutes
-                const days = Math.floor(uptimeSeconds / 86400);
-                const hours = Math.floor((uptimeSeconds % 86400) / 3600);
-                const minutes = Math.floor((uptimeSeconds % 3600) / 60);
-
-                // Build the formatted uptime string
-                let formatted = "";
-                if (days > 0)
-                    formatted += `${days}d`;
-                if (hours > 0)
-                    formatted += `${formatted ? ", " : ""}${hours}h`;
-                if (minutes > 0 || !formatted)
-                    formatted += `${formatted ? ", " : ""}${minutes}m`;
-                root.uptime = formatted;
+                const match = text.match(/\bsec = (\d+)/);
+                if (match)
+                    root.bootTime = Number(match[1]) * 1000;
             }
         }
     }

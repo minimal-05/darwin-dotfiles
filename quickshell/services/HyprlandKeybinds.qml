@@ -27,9 +27,10 @@ Singleton {
         }
     }
 
+    // hyprctl does not exist on macOS; the cheatsheet shows no binds there.
     Process {
         id: getKeybinds
-        running: true
+        running: !Platform.isMacOS
         command: ["hyprctl", "binds", "-j"]
         
         stdout: StdioCollector {

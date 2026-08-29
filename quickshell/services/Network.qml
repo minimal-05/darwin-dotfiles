@@ -15,7 +15,10 @@ import qs.services.network
  * macOS port: nmcli does not exist. scripts/macos/network.sh prints the same
  * shapes this file already parses, using networksetup, route, scutil and
  * system_profiler. The nmcli event subscriber becomes a plain ticker — macOS
- * has no network event stream to subscribe to.
+ * has no network event stream to subscribe to. Each tick is one
+ * `network.sh all` (status, name, strength, radio from a single process);
+ * the access-point list (`aps`, a 3 s radio scan) is only fetched when a
+ * Wi-Fi panel asks for it via rescanWifi(), never at startup.
  *
  * The SSID reads as "<redacted>" (falling back to "Wi-Fi") unless quickshell is
  * granted Location Services permission; that is a macOS privacy restriction.
@@ -43,15 +46,18 @@ Singleton {
 
     property string networkName: ""
     property int networkStrength
+    // The scanned list only exists after a Wi-Fi panel has been opened, so
+    // the icon falls back to the strength the status tick reads.
+    readonly property int activeStrength: root.active?.strength ?? root.networkStrength
     property string materialSymbol: root.ethernet
         ? "lan"
         : (root.wifiEnabled && root.wifiStatus === "connected")
             ? (
-                (root.active?.strength ?? 0) > 83 ? "signal_wifi_4_bar" :
-                (root.active?.strength ?? 0) > 67 ? "network_wifi" :
-                (root.active?.strength ?? 0) > 50 ? "network_wifi_3_bar" :
-                (root.active?.strength ?? 0) > 33 ? "network_wifi_2_bar" :
-                (root.active?.strength ?? 0) > 17 ? "network_wifi_1_bar" :
+                root.activeStrength > 83 ? "signal_wifi_4_bar" :
+                root.activeStrength > 67 ? "network_wifi" :
+                root.activeStrength > 50 ? "network_wifi_3_bar" :
+                root.activeStrength > 33 ? "network_wifi_2_bar" :
+                root.activeStrength > 17 ? "network_wifi_1_bar" :
                 "signal_wifi_0_bar"
             )
             : (root.wifiStatus === "connecting")
@@ -74,7 +80,7 @@ Singleton {
 
     function rescanWifi(): void {
         wifiScanning = true;
-        rescanProcess.running = true;
+        getNetworks.running = true;
     }
 
     function connectToWifiNetwork(accessPoint: WifiAccessPoint): void {
@@ -135,6 +141,7 @@ Singleton {
         onExited: (exitCode, exitStatus) => {
             root.wifiConnectTarget.askingPassword = (exitCode !== 0)
             root.wifiConnectTarget = null
+            root.update()
         }
     }
 
@@ -143,6 +150,7 @@ Singleton {
         stdout: SplitParser {
             onRead: getNetworks.running = true
         }
+        onExited: root.update()
     }
 
     Process {
@@ -153,124 +161,85 @@ Singleton {
         }
     }
 
-    Process {
-        id: rescanProcess
-        command: ["bash", Directories.networkScriptPath, "status"]
-        stdout: SplitParser {
-            onRead: {
-                wifiScanning = false;
-                getNetworks.running = true;
-            }
-        }
-    }
-
     // Status update
+    property int updateInterval: 30000
+
     function update() {
-        updateConnectionType.startCheck();
-        wifiStatusProcess.running = true
-        updateNetworkName.running = true;
-        updateNetworkStrength.running = true;
+        updateAll.running = true;
     }
 
-    Process {
-        id: subscriber
+    Timer {
+        interval: root.updateInterval
         running: true
-        command: ["bash", "-c", "while :; do sleep 10; echo tick; done"]
-        stdout: SplitParser {
-            onRead: root.update()
-        }
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: root.update()
     }
 
     Process {
-        id: updateConnectionType
-        property string buffer
-        command: ["bash", Directories.networkScriptPath, "status"]
-        running: true
-        function startCheck() {
-            buffer = "";
-            updateConnectionType.running = true;
-        }
-        stdout: SplitParser {
-            onRead: data => {
-                updateConnectionType.buffer += data + "\n";
-            }
-        }
-        onExited: (exitCode, exitStatus) => {
-            const lines = updateConnectionType.buffer.trim().split('\n');
-            const connectivity = lines.pop() // none, limited, full
-            let hasEthernet = false;
-            let hasWifi = false;
-            let wifiStatus = "disconnected";
-            lines.forEach(line => {
-                if (line.includes("ethernet") && line.includes("connected"))
-                    hasEthernet = true;
-                else if (line.includes("wifi:")) {
-                    if (line.includes("disconnected")) {
-                        wifiStatus = "disconnected"
-                    }
-                    else if (line.includes("connected")) {
-                        hasWifi = true;
-                        wifiStatus = "connected"
-
-                        if (connectivity === "limited") {
-                            hasWifi = false;
-                            wifiStatus = "limited"
-                        }
-                    }
-                    else if (line.includes("connecting")) {
-                        wifiStatus = "connecting"
-                    }
-                    else if (line.includes("unavailable")) {
-                        wifiStatus = "disabled"
-                    }
-                }
-            });
-            root.wifiStatus = wifiStatus;
-            root.ethernet = hasEthernet;
-            root.wifi = hasWifi;
-        }
-    }
-
-    Process {
-        id: updateNetworkName
-        command: ["bash", Directories.networkScriptPath, "name"]
-        running: true
-        stdout: SplitParser {
-            onRead: data => {
-                root.networkName = data;
-            }
-        }
-    }
-
-    Process {
-        id: updateNetworkStrength
-        running: true
-        command: ["bash", Directories.networkScriptPath, "strength"]
-        stdout: SplitParser {
-            onRead: data => {
-                root.networkStrength = parseInt(data);
-            }
-        }
-    }
-
-    Process {
-        id: wifiStatusProcess
-        command: ["bash", Directories.networkScriptPath, "radio"]
-        Component.onCompleted: running = true
+        id: updateAll
+        command: ["bash", Directories.networkScriptPath, "all"]
         environment: ({
             LANG: "C",
             LC_ALL: "C"
         })
         stdout: StdioCollector {
             onStreamFinished: {
-                root.wifiEnabled = text.trim() === "enabled";
+                let hasEthernet = false;
+                let hasWifi = false;
+                let wifiStatus = "disconnected";
+                let connectivity = "none"; // none, limited, full
+                const statusLines = [];
+
+                for (const raw of text.trim().split("\n")) {
+                    const sep = raw.indexOf(" ");
+                    if (sep < 0) continue;
+                    const key = raw.slice(0, sep);
+                    const value = raw.slice(sep + 1);
+                    if (key === "status") statusLines.push(value);
+                    else if (key === "name") root.networkName = value;
+                    else if (key === "strength") root.networkStrength = parseInt(value) || 0;
+                    else if (key === "radio") root.wifiEnabled = value.trim() === "enabled";
+                }
+                if (statusLines.length > 0)
+                    connectivity = statusLines.pop();
+
+                statusLines.forEach(line => {
+                    if (line.includes("ethernet") && line.includes("connected"))
+                        hasEthernet = true;
+                    else if (line.includes("wifi:")) {
+                        if (line.includes("disconnected")) {
+                            wifiStatus = "disconnected"
+                        }
+                        else if (line.includes("connected")) {
+                            hasWifi = true;
+                            wifiStatus = "connected"
+
+                            if (connectivity === "limited") {
+                                hasWifi = false;
+                                wifiStatus = "limited"
+                            }
+                        }
+                        else if (line.includes("connecting")) {
+                            wifiStatus = "connecting"
+                        }
+                        else if (line.includes("unavailable")) {
+                            wifiStatus = "disabled"
+                        }
+                    }
+                });
+                root.wifiStatus = wifiStatus;
+                root.ethernet = hasEthernet;
+                root.wifi = hasWifi;
             }
         }
     }
 
     Process {
         id: getNetworks
-        running: true
+        // Never at startup: this is the 3 s channel scan. rescanWifi() runs it
+        // when a Wi-Fi panel opens; connect/disconnect refresh it after.
+        running: false
         command: ["bash", Directories.networkScriptPath, "aps"]
         environment: ({
             LANG: "C",
@@ -278,6 +247,7 @@ Singleton {
         })
         stdout: StdioCollector {
             onStreamFinished: {
+                root.wifiScanning = false;
                 const PLACEHOLDER = "STRINGWHICHHOPEFULLYWONTBEUSED";
                 const rep = new RegExp("\\\\:", "g");
                 const rep2 = new RegExp(PLACEHOLDER, "g");
