@@ -28,11 +28,18 @@ The hand-written bar that used to live here was removed on 2026-08-29, so there
 is one quickshell config now rather than two competing ones. It is still in
 history: `git log --diff-filter=D -- quickshell/shell.qml`.
 
-`~/Projects/quickshell-macos/shell` and `~/Projects/quickshell-macos/examples/end4-ii`
-are both **symlinks** back to `~/.config/quickshell`. Neither is a second copy —
-do not replace either with a directory. The `examples/end4-ii` one exists only so
-paths that still name the old location keep resolving; new code should say
-`~/.config/quickshell`.
+There are **no symlinks** anywhere in this layout. `quickshell-macos/shell` and
+`quickshell-macos/examples/` used to point here and are gone; every path is
+written out in full instead. If a script needs this config, it says
+`$HOME/.config/quickshell` — never a relative walk up from its own location,
+which is what silently broke `switchwall.sh` when the config moved.
+
+Inside it, the panel modules are flat: `modules/bar`, `modules/dock`,
+`modules/overview` — not `modules/ii/...` as upstream ships them. The panel
+family that used to be called `ii` is `main`; `waffle` is unchanged. The stored
+`panelFamily` in `~/Library/Preferences/illogical-impulse/config.json` was
+migrated to match, so a config.json restored from an older backup will name a
+family that no longer exists and load no panels.
 
 `~/Projects/qs-macos-spike` is a stale checkout with no Cocoa backend and
 nothing uses it. Don't edit it.

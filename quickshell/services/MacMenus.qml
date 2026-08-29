@@ -31,6 +31,13 @@ Singleton {
     // every pass over a menu title; going back to one is then free.
     property var cache: ({})
 
+    // The app the menus were read from, captured while the dropdown opens and
+    // before any click of ours can change it. Clicking a shell surface makes
+    // quickshell the frontmost application -- its windows are plain QNSWindows,
+    // not NSPanels, so AppKit's nonactivating panel style cannot apply -- and
+    // the helper presses menu items of whatever is frontmost.
+    property int targetPid: -1
+
     // Set when the helper returns no menus at all, which in practice only
     // happens once it has lost its Accessibility grant.
     property bool blocked: false
@@ -39,6 +46,8 @@ Singleton {
         // The frontmost app may have changed since last time, so the cache from
         // the previous open cannot be trusted.
         root.cache = {};
+        frontPid.running = false;
+        frontPid.running = true;
         list.running = false;
         list.running = true;
     }
@@ -65,7 +74,32 @@ Singleton {
     }
 
     function press(menu: int, entry: int): void {
-        Quickshell.execDetached([root.bin, "-p", String(menu), String(entry)]);
+        const command = `'${root.bin}' -p ${menu} ${entry}`;
+
+        if (root.targetPid <= 0) {
+            Quickshell.execDetached(["sh", "-c", command]);
+            root.close();
+            return;
+        }
+
+        // Bring the app back to the front before pressing, and wait until it
+        // actually is: activation is asynchronous, and pressing early sends the
+        // command to whatever is still frontmost. The bundle comes from the pid
+        // rather than the menu title, which is not always the app's name --
+        // VS Code's menu says "Code".
+        const pid = root.targetPid;
+        Quickshell.execDetached(["sh", "-c", `
+            app=$(ps -p ${pid} -o comm= 2>/dev/null | sed 's#/Contents/MacOS/.*##')
+            [ -n "$app" ] && open -a "$app"
+            i=0
+            while [ $i -lt 40 ]; do
+                front=$(lsappinfo info -only pid "$(lsappinfo front)" 2>/dev/null | sed 's/.*=//')
+                [ "$front" = "${pid}" ] && break
+                i=$((i + 1))
+                sleep 0.02
+            done
+            ${command}
+        `]);
         root.close();
     }
 
@@ -80,6 +114,21 @@ Singleton {
      */
     function controlCentre(): void {
         Quickshell.execDetached([root.bin, "-s", "Control Center,BentoBox"]);
+    }
+
+    Process {
+        id: frontPid
+
+        // lsappinfo's notion of the front application is the same one the AX
+        // helper uses, and it costs about 10ms.
+        command: ["sh", "-c", "lsappinfo info -only pid \"$(lsappinfo front)\" 2>/dev/null | sed 's/.*=//'"]
+
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const pid = parseInt(text.trim());
+                root.targetPid = isNaN(pid) ? -1 : pid;
+            }
+        }
     }
 
     Process {

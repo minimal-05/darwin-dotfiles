@@ -2,11 +2,13 @@
 # macOS: Qt reports these locations, and the shell writes its config there.
 # Defaulting to the Linux paths reads files that do not exist on this system.
 
-QUICKSHELL_CONFIG_NAME="ii"
 XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/Library/Preferences}"
 XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/Library/Caches}"
 XDG_STATE_HOME="${XDG_STATE_HOME:-$HOME/Library/Preferences}"
-CONFIG_DIR="$XDG_CONFIG_HOME/quickshell/$QUICKSHELL_CONFIG_NAME"
+# The config directory is ~/.config/quickshell itself. Upstream nests it one
+# level deeper under the panel-family name, which on macOS pointed at a
+# directory that never existed -- `cd "$CONFIG_DIR"` then exited silently.
+CONFIG_DIR="$HOME/.config/quickshell"
 CACHE_DIR="$XDG_CACHE_HOME/quickshell"
 STATE_DIR="$XDG_STATE_HOME/quickshell"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

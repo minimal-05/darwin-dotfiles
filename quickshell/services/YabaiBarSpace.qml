@@ -50,7 +50,7 @@ Singleton {
 
     readonly property bool vertical: Config.options.bar.vertical
     // bar.bottom doubles as "right" for a vertical bar -- see the anchors in
-    // modules/ii/verticalBar/VerticalBar.qml.
+    // modules/verticalBar/VerticalBar.qml.
     readonly property bool farSide: Config.options.bar.bottom
 
     // Same expression as the bar's own exclusiveZone binding.
