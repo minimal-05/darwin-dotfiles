@@ -14,8 +14,9 @@ ContentPage {
     Process {
         id: randomWallProc
         property string status: ""
-        property string scriptPath: `${Directories.scriptPath}/colors/random/random_konachan_wall.sh`
-        command: ["bash", "-c", FileUtils.trimFileProtocol(randomWallProc.scriptPath)]
+        property string query: "minimalism"
+        property string category: "100"
+        command: ["bash", FileUtils.trimFileProtocol(`${Directories.scriptPath}/colors/random/random_wallhaven_wall.sh`), randomWallProc.query, randomWallProc.category]
         stdout: SplitParser {
             onRead: data => {
                 randomWallProc.status = data.trim();
@@ -88,32 +89,32 @@ ContentPage {
             ColumnLayout {
                 RippleButtonWithIcon {
                     enabled: !randomWallProc.running
-                    visible: Config.options.policies.weeb === 1
                     Layout.fillWidth: true
                     buttonRadius: Appearance.rounding.small
                     materialIcon: "ifl"
-                    mainText: randomWallProc.running ? Translation.tr("Be patient...") : Translation.tr("Random: Konachan")
+                    mainText: randomWallProc.running ? Translation.tr("Be patient...") : Translation.tr("Random: Minimal")
                     onClicked: {
-                        randomWallProc.scriptPath = `${Directories.scriptPath}/colors/random/random_konachan_wall.sh`;
+                        randomWallProc.query = "minimalism";
+                        randomWallProc.category = "100";
                         randomWallProc.running = true;
                     }
                     StyledToolTip {
-                        text: Translation.tr("Random SFW Anime wallpaper from Konachan\nImage is saved to ~/Pictures/Wallpapers")
+                        text: Translation.tr("Random minimalist wallpaper from wallhaven\nImage is saved to ~/Pictures/Wallpapers")
                     }
                 }
                 RippleButtonWithIcon {
                     enabled: !randomWallProc.running
-                    visible: Config.options.policies.weeb === 1
                     Layout.fillWidth: true
                     buttonRadius: Appearance.rounding.small
                     materialIcon: "ifl"
-                    mainText: randomWallProc.running ? Translation.tr("Be patient...") : Translation.tr("Random: osu! seasonal")
+                    mainText: randomWallProc.running ? Translation.tr("Be patient...") : Translation.tr("Random: Anime")
                     onClicked: {
-                        randomWallProc.scriptPath = `${Directories.scriptPath}/colors/random/random_osu_wall.sh`;
+                        randomWallProc.query = "";
+                        randomWallProc.category = "010";
                         randomWallProc.running = true;
                     }
                     StyledToolTip {
-                        text: Translation.tr("Random osu! seasonal background\nImage is saved to ~/Pictures/Wallpapers")
+                        text: Translation.tr("Random SFW anime wallpaper from wallhaven\nImage is saved to ~/Pictures/Wallpapers")
                     }
                 }
                 RippleButtonWithIcon {

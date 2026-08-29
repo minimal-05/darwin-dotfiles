@@ -124,6 +124,26 @@ if [ "$noswitch" -eq 0 ] && [ -n "$image" ] && [ -f "$image" ]; then
     osascript -e "tell application \"System Events\" to set picture of every desktop to \"$image\"" >/dev/null 2>&1
 fi
 
+# ---- record the wallpaper in the shell's config --------------------------
+# The shell watches this file, so writing it is what makes the preview
+# thumbnail and every wallpaper-dependent option come alive.
+#
+# This has to happen *before* the palette generation below, not after it.
+# WallpaperWatcher polls the live desktop picture every 5s and re-runs this
+# script whenever it disagrees with background.wallpaperPath. Generating first
+# left the two disagreeing for as long as matugen took -- seconds -- so a poll
+# landing in that window fired a second switchwall against the image this run
+# was already handling: two generators writing colors.json, and two
+# read-modify-write cycles on the config that can drop each other's edits.
+if [ -n "$image" ] && [ -f "$image" ] && [ -f "$SHELL_CONFIG_FILE" ]; then
+    tmp="$SHELL_CONFIG_FILE.tmp.$$"
+    if jq --arg p "$image" '.background.wallpaperPath = $p' "$SHELL_CONFIG_FILE" > "$tmp" 2>/dev/null; then
+        mv "$tmp" "$SHELL_CONFIG_FILE"
+    else
+        rm -f "$tmp"
+    fi
+fi
+
 # ---- generate the palette -----------------------------------------------
 if [ -n "$image" ] && [ -f "$image" ]; then
     "$MATUGEN" --image "$image" --mode "$mode_flag" --scheme "$scheme" --out "$COLORS_FILE" >/dev/null \
@@ -141,18 +161,6 @@ else
     [ -n "$accent" ] || accent="#8f7fd6"
     "$MATUGEN" --color "$accent" --mode "$mode_flag" --scheme "$scheme" --out "$COLORS_FILE" >/dev/null \
         || die "colour generation failed for $accent"
-fi
-
-# ---- record the wallpaper in the shell's config --------------------------
-# The shell watches this file, so writing it is what makes the preview
-# thumbnail and every wallpaper-dependent option come alive.
-if [ -n "$image" ] && [ -f "$image" ] && [ -f "$SHELL_CONFIG_FILE" ]; then
-    tmp="$SHELL_CONFIG_FILE.tmp.$$"
-    if jq --arg p "$image" '.background.wallpaperPath = $p' "$SHELL_CONFIG_FILE" > "$tmp" 2>/dev/null; then
-        mv "$tmp" "$SHELL_CONFIG_FILE"
-    else
-        rm -f "$tmp"
-    fi
 fi
 
 # ---- repaint the apps that follow the palette ----------------------------
