@@ -74,6 +74,15 @@ Singleton {
     ]
     readonly property string desired: root.settings.join(" | ")
 
+    // The same numbers as HyprlandData reads back through `reserved`:
+    // [left, top, right, bottom] with external_bar folded into top/bottom.
+    readonly property list<int> reserved: [
+        root.atLeft ? root.extent + root.gap : root.gap,
+        (root.atTop ? root.extent : 0) + root.gap,
+        root.atRight ? root.extent + root.gap : root.gap,
+        (root.atBottom ? root.extent : 0) + root.gap
+    ]
+
     function apply(): void {
         if (!Platform.isMacOS)
             return;
@@ -83,6 +92,9 @@ Singleton {
             "command -v yabai >/dev/null 2>&1 || exit 0; "
             + root.settings.map(s => `yabai -m config ${s}`).join("; ")
         ]);
+        // This is the only writer of those settings, so the reader can be
+        // told instead of asking yabai five times on every window event.
+        HyprlandData.reserved = root.reserved;
     }
 
     // The settings window writes the config key by key, so a bar-position

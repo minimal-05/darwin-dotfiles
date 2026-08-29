@@ -70,9 +70,28 @@ Singleton {
         }
     }
 
-    function updateWindowList() {
-        getClients.running = true;
+    function updateWindowList() { root.refresh(); }
+    function updateLayers() {}
+    function updateMonitors() { root.refresh(); }
+    function updateWorkspaces() { root.refresh(); }
+    function updateAll() { root.refresh(); }
+
+    // How many refreshes have run. Read by _probe_hyprlanddata.qml.
+    property int refreshes: 0
+
+    function refresh() {
+        root.pending = true;
+        refreshTimer.restart();
     }
+
+    function runPending() {
+        if (root.pending && !getAll.running) {
+            root.pending = false;
+            root.refreshes++;
+            getAll.running = true;
+        }
+    }
+    property bool pending: false
 
     // yabai cannot resize a window on a space macOS is not currently showing.
     // The move is recorded, the frame is not: drag a small window into an empty
@@ -128,26 +147,6 @@ Singleton {
             root.windowList = root.settleHiddenLayout(root.windowList.slice());
     }
 
-    function updateLayers() {
-        getLayers.running = true;
-    }
-
-    function updateMonitors() {
-        getMonitors.running = true;
-    }
-
-    function updateWorkspaces() {
-        getWorkspaces.running = true;
-        getActiveWorkspace.running = true;
-    }
-
-    function updateAll() {
-        updateWindowList();
-        updateMonitors();
-        updateLayers();
-        updateWorkspaces();
-    }
-
     function biggestWindowForWorkspace(workspaceId) {
         const windowsInThisWorkspace = HyprlandData.windowList.filter(w => w.workspace.id == workspaceId);
         return windowsInThisWorkspace.reduce((maxWin, win) => {
@@ -157,17 +156,54 @@ Singleton {
         }, null);
     }
 
+
     Component.onCompleted: {
-        updateAll();
+        getReserved.running = true;
+        refresh();
     }
 
+    // One yabai change lands here as several synthesised events (workspace,
+    // workspacev2, activewindow, ...), each of which used to trigger the
+    // full set of queries; the timer folds a burst into one refresh.
     Connections {
         target: Hyprland
 
         function onRawEvent(event) {
-            // console.log("Hyprland raw event:", event.name);
             if (["openlayer", "closelayer", "screencast"].includes(event.name)) return;
-            updateAll()
+            root.refresh();
+        }
+    }
+
+    Timer {
+        id: refreshTimer
+        interval: 30
+        repeat: false
+        onTriggered: root.runPending()
+    }
+
+    // The padding yabai reserves around the tiling area, as `reserved` on
+    // every monitor: [left, top, right, bottom], external_bar folded into top
+    // and bottom the way Hyprland folds a bar's exclusive zone in. Read from
+    // yabai once at startup; YabaiBarSpace, which is the only writer, pushes
+    // the value it wrote after every change, so the five `yabai -m config`
+    // reads never run again.
+    property var reserved: [0, 0, 0, 0]
+
+    onReservedChanged: {
+        if (root.monitors.length > 0)
+            root.monitors = root.monitors.map(m => Object.assign({}, m, { reserved: root.reserved }));
+    }
+
+    Process {
+        id: getReserved
+        command: ["/bin/sh", "-c", `num() { v=$(yabai -m config "$1" 2>/dev/null); case "$v" in ''|*[!0-9]*) echo 0;; *) echo "$v";; esac; }; EB=$(yabai -m config external_bar 2>/dev/null); EBT=\${EB#*:}; EBT=\${EBT%%:*}; EBB=\${EB##*:}; case "$EBT" in ''|*[!0-9]*) EBT=0;; esac; case "$EBB" in ''|*[!0-9]*) EBB=0;; esac; printf '[%d,%d,%d,%d]' "$(num left_padding)" "$((EBT + $(num top_padding)))" "$(num right_padding)" "$((EBB + $(num bottom_padding)))"`]
+        stdout: StdioCollector {
+            id: reservedCollector
+            onStreamFinished: {
+                const v = root.parseOr(reservedCollector.text, null);
+                if (Array.isArray(v) && v.length === 4)
+                    root.reserved = v;
+            }
         }
     }
 
@@ -183,74 +219,61 @@ Singleton {
     // WorkspaceModel fall through to its default and report a special workspace as
     // permanently active. yabai has no special workspaces, so the empty name is
     // both the honest answer and the one that reads correctly.
+    //
+    // The three queries feed one jq (-s slurps them into [windows, spaces,
+    // displays]) that emits all four shapes at once: 5 processes per refresh
+    // where the per-shape pipelines cost about 38. Layers stay a constant
+    // empty object — layer surfaces are a Wayland concept.
     Process {
-        id: getClients
-        command: ["/bin/sh", "-c", `yabai -m query --windows | jq -c 'def tohex: [recurse(if . >= 16 then ./16|floor else empty end) | . % 16] | reverse | map(if . < 10 then 48 + . else 87 + . end) | implode; [.[] | select(.app != "quickshell") | {address: ("0x" + (.id|tohex)), mapped: true, hidden: (."is-minimized" // false), at: [(.frame.x|floor), (.frame.y|floor)], size: [(.frame.w|floor), (.frame.h|floor)], workspace: {id: .space, name: (.space|tostring)}, floating: (."is-floating" // false), monitor: (.display - 1), class: .app, initialClass: .app, title: .title, initialTitle: .title, pid: .pid, focusHistoryID: 0, fullscreen: (."is-native-fullscreen" // false)}]'`]
+        id: getAll
+        command: ["/bin/sh", "-c", `{ yabai -m query --windows; yabai -m query --spaces; yabai -m query --displays; } | jq -c -s '`
+            + `def tohex: [recurse(if . >= 16 then ./16|floor else empty end) | . % 16] | reverse | map(if . < 10 then 48 + . else 87 + . end) | implode; `
+            + `def ws: {id: .index, name: (.index|tostring), monitor: ("Display-" + (.display|tostring)), monitorID: (.display - 1), windows: (.windows|length), hasfullscreen: false, lastwindow: "", lastwindowtitle: ""}; `
+            + `. as [$w, $s, $d] | {`
+            + `windows: [$w[] | select(.app != "quickshell") | {address: ("0x" + (.id|tohex)), mapped: true, hidden: (."is-minimized" // false), at: [(.frame.x|floor), (.frame.y|floor)], size: [(.frame.w|floor), (.frame.h|floor)], workspace: {id: .space, name: (.space|tostring)}, floating: (."is-floating" // false), monitor: (.display - 1), class: .app, initialClass: .app, title: .title, initialTitle: .title, pid: .pid, focusHistoryID: 0, fullscreen: (."is-native-fullscreen" // false)}], `
+            + `workspaces: [$s[] | ws], `
+            + `activeWorkspace: (([$s[] | select(."has-focus")] | .[0]) as $a | if $a then ($a | ws) else null end), `
+            + `monitors: [$d[] | . as $dd | {id: (.index - 1), name: ("Display-" + (.index|tostring)), description: ("Display " + (.index|tostring)), width: (.frame.w|floor), height: (.frame.h|floor), x: (.frame.x|floor), y: (.frame.y|floor), activeWorkspace: (([$s[] | select(.display == $dd.index and ."is-visible")] | .[0] | {id: .index, name: (.index|tostring)}) // {id:1,name:"1"}), specialWorkspace: {id: 0, name: ""}, focused: ."has-focus", scale: 1.0, transform: 0, disabled: false}]`
+            + `}'`]
+        onRunningChanged: if (!running) Qt.callLater(root.runPending)
         stdout: StdioCollector {
-            id: clientsCollector
+            id: allCollector
             onStreamFinished: {
-                root.windowList = root.settleHiddenLayout(root.parseOr(clientsCollector.text, root.windowList))
-                let tempWinByAddress = {};
-                for (var i = 0; i < root.windowList.length; ++i) {
-                    var win = root.windowList[i];
-                    tempWinByAddress[win.address] = win;
+                const data = root.parseOr(allCollector.text, null);
+                if (!data || typeof data !== "object")
+                    return;
+
+                // Monitors first: settleHiddenLayout measures windows against
+                // them. `reserved` is stamped here rather than passed to jq so
+                // the command never changes under a running process.
+                if (Array.isArray(data.monitors))
+                    root.monitors = data.monitors.map(m => Object.assign(m, { reserved: root.reserved }));
+
+                if (Array.isArray(data.windows)) {
+                    root.windowList = root.settleHiddenLayout(data.windows);
+                    let tempWinByAddress = {};
+                    for (var i = 0; i < root.windowList.length; ++i) {
+                        var win = root.windowList[i];
+                        tempWinByAddress[win.address] = win;
+                    }
+                    root.windowByAddress = tempWinByAddress;
+                    root.addresses = root.windowList.map(win => win.address);
                 }
-                root.windowByAddress = tempWinByAddress;
-                root.addresses = root.windowList.map(win => win.address);
-            }
-        }
-    }
 
-    Process {
-        id: getMonitors
-        command: ["/bin/sh", "-c", `num() { v=$(yabai -m config "$1" 2>/dev/null); echo "$v" | grep -qE '^[0-9]+$' && echo "$v" || echo 0; }; EB=$(yabai -m config external_bar 2>/dev/null); EBT=$(echo "$EB" | cut -d: -f2 | grep -E '^[0-9]+$' || echo 0); EBB=$(echo "$EB" | cut -d: -f3 | grep -E '^[0-9]+$' || echo 0); RESERVED=$(printf '[%d,%d,%d,%d]' "$(num left_padding)" "$((EBT + $(num top_padding)))" "$(num right_padding)" "$((EBB + $(num bottom_padding)))"); SPACES=$(yabai -m query --spaces); yabai -m query --displays | jq -c --argjson spaces "$SPACES" --argjson reserved "$RESERVED" '[.[] | . as $d | {id: (.index - 1), name: ("Display-" + (.index|tostring)), description: ("Display " + (.index|tostring)), width: (.frame.w|floor), height: (.frame.h|floor), x: (.frame.x|floor), y: (.frame.y|floor), reserved: $reserved, activeWorkspace: (([$spaces[] | select(.display == $d.index and ."is-visible")] | .[0] | {id: .index, name: (.index|tostring)}) // {id:1,name:"1"}), specialWorkspace: {id: 0, name: ""}, focused: ."has-focus", scale: 1.0, transform: 0, disabled: false}]'`]
-        stdout: StdioCollector {
-            id: monitorsCollector
-            onStreamFinished: {
-                root.monitors = root.parseOr(monitorsCollector.text, root.monitors);
-            }
-        }
-    }
-
-    Process {
-        id: getLayers
-        // Layer surfaces are a Wayland concept with no macOS counterpart.
-        command: ["/bin/sh", "-c", "echo '{}'"]
-        stdout: StdioCollector {
-            id: layersCollector
-            onStreamFinished: {
-                root.layers = root.parseOr(layersCollector.text, root.layers);
-            }
-        }
-    }
-
-    Process {
-        id: getWorkspaces
-        command: ["/bin/sh", "-c", `yabai -m query --spaces | jq -c '[.[] | {id: .index, name: (.index|tostring), monitor: ("Display-" + (.display|tostring)), monitorID: (.display - 1), windows: (.windows|length), hasfullscreen: false, lastwindow: "", lastwindowtitle: ""}]'`]
-        stdout: StdioCollector {
-            id: workspacesCollector
-            onStreamFinished: {
-                var rawWorkspaces = root.parseOr(workspacesCollector.text, root.workspaces);
-                // Filter out invalid workspace ids (e.g. lock-screen temp workspace 2147483647 - N)
-                root.workspaces = rawWorkspaces.filter(ws => ws.id >= 1 && ws.id <= 100);
-                let tempWorkspaceById = {};
-                for (var i = 0; i < root.workspaces.length; ++i) {
-                    var ws = root.workspaces[i];
-                    tempWorkspaceById[ws.id] = ws;
+                if (Array.isArray(data.workspaces)) {
+                    // Filter out invalid workspace ids (e.g. lock-screen temp workspace 2147483647 - N)
+                    root.workspaces = data.workspaces.filter(ws => ws.id >= 1 && ws.id <= 100);
+                    let tempWorkspaceById = {};
+                    for (var j = 0; j < root.workspaces.length; ++j) {
+                        var ws = root.workspaces[j];
+                        tempWorkspaceById[ws.id] = ws;
+                    }
+                    root.workspaceById = tempWorkspaceById;
+                    root.workspaceIds = root.workspaces.map(ws => ws.id);
                 }
-                root.workspaceById = tempWorkspaceById;
-                root.workspaceIds = root.workspaces.map(ws => ws.id);
-            }
-        }
-    }
 
-    Process {
-        id: getActiveWorkspace
-        command: ["/bin/sh", "-c", `yabai -m query --spaces --space | jq -c '{id: .index, name: (.index|tostring), monitor: ("Display-" + (.display|tostring)), monitorID: (.display - 1), windows: (.windows|length), hasfullscreen: false, lastwindow: "", lastwindowtitle: ""}'`]
-        stdout: StdioCollector {
-            id: activeWorkspaceCollector
-            onStreamFinished: {
-                root.activeWorkspace = root.parseOr(activeWorkspaceCollector.text, root.activeWorkspace);
+                if (data.activeWorkspace)
+                    root.activeWorkspace = data.activeWorkspace;
             }
         }
     }
