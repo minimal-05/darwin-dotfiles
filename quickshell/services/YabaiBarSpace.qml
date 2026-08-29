@@ -66,7 +66,11 @@ Singleton {
         `top_padding ${root.gap}`,
         `bottom_padding ${root.gap}`,
         `left_padding ${root.atLeft ? root.extent + root.gap : root.gap}`,
-        `right_padding ${root.atRight ? root.extent + root.gap : root.gap}`
+        `right_padding ${root.atRight ? root.extent + root.gap : root.gap}`,
+        // yabairc seeds this too, for the desktop before the shell is up. Owned
+        // here as well so the gap between two windows cannot drift away from
+        // the gap around them.
+        `window_gap ${root.gap}`
     ]
     readonly property string desired: root.settings.join(" | ")
 
