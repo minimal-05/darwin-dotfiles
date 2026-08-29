@@ -5,6 +5,12 @@ yabai -m signal --add event=dock_did_restart action="sudo yabai --load-sa"
 yabai -m signal --add label=sbar_space_created event=space_created action="sketchybar --trigger spaces_refresh"
 yabai -m signal --add label=sbar_space_destroyed event=space_destroyed action="sketchybar --trigger spaces_refresh"
 
+# The shell's own signals (quickshell-macos/bin/qs-yabai-signals): a yabai
+# restart drops every signal, and the shell has no event telling it so. This
+# script does know, so it re-registers them; the path is absolute for the
+# same reason skhdrc's and karabiner.json's qs-ipc calls are.
+[ -x "$HOME/Projects/quickshell-macos/bin/qs-yabai-signals" ] && "$HOME/Projects/quickshell-macos/bin/qs-yabai-signals" install
+
 yabai -m config mouse_follows_focus off \
   focus_follows_mouse autofocus \
   window_zoom_persist off \

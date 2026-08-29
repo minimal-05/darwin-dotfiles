@@ -193,21 +193,14 @@ PanelWindow {
         screenshotPath: root.screenshotPath
         onExited: (exitCode, exitStatus) => {
             if (root.enableContentRegions) imageDetectionProcess.running = true;
-            root.preparationDone = !checkRecordingProc.running;
+            root.preparationDone = true;
         }
     }
     property bool isRecording: root.action === RegionSelection.SnipAction.Record || root.action === RegionSelection.SnipAction.RecordWithSound
-    property bool recordingShouldStop: false
-    Process {
-        id: checkRecordingProc
-        running: isRecording
-        // macOS records with screencapture -v, not wf-recorder.
-        command: ["pgrep", "-x", "screencapture"]
-        onExited: (exitCode, exitStatus) => {
-            root.preparationDone = !screenshotProc.running
-            root.recordingShouldStop = (exitCode === 0);
-        }
-    }
+    // macOS records with screencapture -v through record.sh, which keeps a
+    // pidfile ScreenRecording watches; no pgrep needed to know whether this
+    // open is a "start" or a "stop".
+    readonly property bool recordingShouldStop: root.isRecording && ScreenRecording.recording
     property bool preparationDone: false
     onPreparationDoneChanged: {
         if (!preparationDone) return;

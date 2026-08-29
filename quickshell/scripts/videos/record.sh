@@ -28,6 +28,23 @@ RECORDING_DIR="${CUSTOM_PATH:-$HOME/Movies}"
 
 notify() { notify-send "$1" "$2" -a Recorder >/dev/null 2>&1 & disown; }
 
+# screencapture's pid while a recording runs. services/ScreenRecording.qml
+# watches this file instead of polling pgrep; the directory is the same
+# runtime dir `qs` exports, with its default for a run from a terminal.
+PIDFILE="${XDG_RUNTIME_DIR:-/tmp/quickshell-$UID}/quickshell/recording.pid"
+
+# Run screencapture as a child rather than exec'ing over this script, so the
+# pidfile can be removed once it exits. SIGINT is what finalises the movie.
+record() {
+    mkdir -p "$(dirname "$PIDFILE")"
+    screencapture "$@" &
+    local child=$!
+    echo "$child" > "$PIDFILE"
+    trap 'kill -INT "$child" 2>/dev/null' INT TERM
+    wait "$child"
+    rm -f "$PIDFILE"
+}
+
 getdate() { date '+%Y-%m-%d_%H.%M.%S'; }
 
 MANUAL_REGION=""
@@ -51,6 +68,14 @@ done
 
 # ---- stop an in-flight recording ----------------------------------------
 # SIGINT is what finalises the movie file; SIGTERM would leave it truncated.
+# The pidfile names our own recording; pgrep is the fallback for one started
+# some other way (or a pidfile left by a screencapture that died).
+if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE" 2>/dev/null)" 2>/dev/null; then
+    kill -INT "$(cat "$PIDFILE")"
+    notify "Recording stopped" "Saved to $RECORDING_DIR"
+    exit 0
+fi
+rm -f "$PIDFILE"
 if pgrep -x screencapture >/dev/null 2>&1; then
     pkill -INT -x screencapture
     notify "Recording stopped" "Saved to $RECORDING_DIR"
@@ -64,7 +89,8 @@ OUT="$RECORDING_DIR/recording_$(getdate).mov"
 
 if [ "$FULLSCREEN_FLAG" -eq 1 ] || [ -z "$MANUAL_REGION" ]; then
     notify "Starting recording" "$(basename "$OUT")"
-    exec screencapture -v "$OUT"
+    record -v "$OUT"
+    exit 0
 fi
 
 # The shell hands regions over in slurp's shape: "X,Y WxH". screencapture wants
@@ -77,4 +103,4 @@ else
 fi
 
 notify "Starting recording" "$(basename "$OUT")"
-exec screencapture -v -R"$RECT" "$OUT"
+record -v -R"$RECT" "$OUT"
