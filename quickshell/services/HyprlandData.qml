@@ -74,6 +74,60 @@ Singleton {
         getClients.running = true;
     }
 
+    // yabai cannot resize a window on a space macOS is not currently showing.
+    // The move is recorded, the frame is not: drag a small window into an empty
+    // workspace and yabai still reports the size it had in its old one, for as
+    // long as you leave that space unvisited -- measured at 6s and unchanged.
+    // The overview draws windows at their reported frames, so it showed the
+    // window small in a corner of an otherwise empty preview.
+    //
+    // Re-querying cannot fix this; the data is not late, it is stale by design.
+    // So where the answer is unambiguous, report where the window is going to
+    // be instead: a hidden space holding exactly one tiled window gives that
+    // window the whole usable area, which is what yabai will do the moment the
+    // space is shown.
+    //
+    // ponytail: a hidden space with several windows would need bsp simulated
+    // here to know the split, so those still read stale until first visited.
+    // Simulate the layout if that ever matters as much as this case did.
+    function settleHiddenLayout(list) {
+        if (!root.monitors || root.monitors.length === 0)
+            return list;
+
+        const visible = root.monitors.map(m => m?.activeWorkspace?.id).filter(id => id !== undefined);
+        const tiledByWorkspace = {};
+        for (const win of list) {
+            if (win?.floating || win?.hidden || win?.fullscreen)
+                continue;
+            const id = win?.workspace?.id;
+            if (id === undefined || visible.includes(id))
+                continue;
+            (tiledByWorkspace[id] = tiledByWorkspace[id] ?? []).push(win);
+        }
+
+        for (const id in tiledByWorkspace) {
+            const windows = tiledByWorkspace[id];
+            if (windows.length !== 1)
+                continue;
+            const win = windows[0];
+            const mon = root.monitors.find(m => m.id === win.monitor) ?? root.monitors[0];
+            if (!mon?.reserved)
+                continue;
+            win.at = [mon.x + mon.reserved[0], mon.y + mon.reserved[1]];
+            win.size = [mon.width - mon.reserved[0] - mon.reserved[2],
+                        mon.height - mon.reserved[1] - mon.reserved[3]];
+        }
+        return list;
+    }
+
+    // getClients and getMonitors are separate processes and land in either
+    // order, so the pass that parsed the windows may have had no monitors to
+    // measure against. Redo it when they arrive.
+    onMonitorsChanged: {
+        if (root.windowList.length > 0)
+            root.windowList = root.settleHiddenLayout(root.windowList.slice());
+    }
+
     function updateLayers() {
         getLayers.running = true;
     }
@@ -135,7 +189,7 @@ Singleton {
         stdout: StdioCollector {
             id: clientsCollector
             onStreamFinished: {
-                root.windowList = root.parseOr(clientsCollector.text, root.windowList)
+                root.windowList = root.settleHiddenLayout(root.parseOr(clientsCollector.text, root.windowList))
                 let tempWinByAddress = {};
                 for (var i = 0; i < root.windowList.length; ++i) {
                     var win = root.windowList[i];
