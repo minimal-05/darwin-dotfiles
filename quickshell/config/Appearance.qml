@@ -49,7 +49,7 @@ Singleton {
 
     readonly property QtObject sizes: QtObject {
         readonly property int barHeight: 38
-        readonly property int barMargin: 12
+        readonly property int barMargin: 8
         readonly property int barRadius: 18
         readonly property int pillRadius: 12
         readonly property int pillHeight: 26
