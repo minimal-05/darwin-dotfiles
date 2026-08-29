@@ -25,20 +25,21 @@ Scope {
     // physically square, so the fake rounding only earns its place on the edges
     // showing wallpaper and windows.
     //
-    // This holds for Float too. The wedge does clear the pill there (5.6px deep
-    // at the pill's 8px inset), but it lands inside the gap that separates the
-    // pill from the screen edge, so the padding reads black in the corner and
-    // wallpaper everywhere else.
+    // Float is the exception: the pill is inset by the window gap, so the screen
+    // edge behind it is wallpaper like the other three and wants the same
+    // corners. The wedge clears the pill (5.6px deep at the pill's 8px inset),
+    // so it rounds the padding around the pill instead of biting into it.
     readonly property bool barVertical: Config.options.bar.vertical
     // bar.bottom doubles as "right" for a vertical bar, as in YabaiBarSpace.
     readonly property bool barFarSide: Config.options.bar.bottom
+    readonly property bool barFloating: Config.options.bar.cornerStyle === 1
 
     component CornerPanelWindow: PanelWindow {
         id: cornerPanelWindow
         property var brightnessMonitor: Brightness.getMonitorForScreen(screen)
         property bool fullscreen
         property bool coveredByBar: false
-        visible: !cornerPanelWindow.coveredByBar
+        visible: (!cornerPanelWindow.coveredByBar || screenCorners.barFloating)
             && (Config.options.appearance.fakeScreenRounding === 1 || (Config.options.appearance.fakeScreenRounding === 2 && !fullscreen))
         property var corner
 
