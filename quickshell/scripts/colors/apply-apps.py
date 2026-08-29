@@ -230,6 +230,25 @@ def firefox_profiles() -> list:
     return [d for d in (FIREFOX / p.strip() for p in paths) if d.is_dir()]
 
 
+def user_chrome_text(existing: str, live: bool) -> str:
+    """userChrome.css with our @import removed (live) or present (not live).
+
+    The import cannot coexist with the autoconfig. userChrome.css is parsed
+    once at startup, and its copy of these rules shadows the sheet firefox.cfg
+    re-registers, so the colours freeze at whatever they were when the browser
+    launched -- which is exactly the "Firefox does not update live" symptom.
+    Isolated three ways on scratch profiles: no userChrome.css repaints live,
+    userChrome.css without the import repaints live, userChrome.css with the
+    import does not.
+
+    Without the autoconfig the import is the only thing that applies the
+    colours at all, so it goes back in. Removing the autoconfig therefore heals
+    itself on the next colour change.
+    """
+    stripped = existing.replace(f"{FF_IMPORT}\n", "").replace(FF_IMPORT, "")
+    return stripped if live else f"{FF_IMPORT}\n{stripped}"
+
+
 def apply_firefox(colours: dict, dark: bool, enabled: bool = True) -> str:
     profiles = firefox_profiles()
     if not profiles:
@@ -240,6 +259,8 @@ def apply_firefox(colours: dict, dark: bool, enabled: bool = True) -> str:
     # painted and make the switch look like it does nothing. kitty and VSCodium
     # are only rewritten on a colour change, so for them "off" is just: stop
     # rewriting, and they keep the colours they have.
+    live = FF_AUTOCONFIG.is_file() and FF_SHEET in FF_AUTOCONFIG.read_text()
+
     css = firefox_css(colours, dark) if enabled else (
         f"/* {BANNER} */\n"
         "/* Firefox theming is off: Settings -> Advanced -> Color generation. */\n"
@@ -249,14 +270,12 @@ def apply_firefox(colours: dict, dark: bool, enabled: bool = True) -> str:
         chrome.mkdir(exist_ok=True)
         (chrome / FF_SHEET).write_text(css)
 
-        # userChrome.css is the only file Firefox loads; ours has to be
-        # imported from it, and @import must precede any rule in the file.
         user_chrome = chrome / "userChrome.css"
         existing = user_chrome.read_text() if user_chrome.is_file() else ""
-        if FF_IMPORT not in existing:
-            user_chrome.write_text(f"{FF_IMPORT}\n{existing}")
+        wanted = user_chrome_text(existing, live)
+        if wanted != existing:
+            user_chrome.write_text(wanted)
 
-    live = FF_AUTOCONFIG.is_file() and FF_SHEET in FF_AUTOCONFIG.read_text()
     names = ", ".join(p.name for p in profiles)
     how = "live" if live else "restart Firefox to see it"
     if not enabled:
@@ -550,6 +569,22 @@ def self_check() -> int:
 
     # Black on black is the worst case and still has to come out legible.
     assert contrast(readable("#000000", "#000000"), "#000000") >= 4.5
+
+    # The import must be absent when the autoconfig is live and present when it
+    # is not, whichever state the file starts in, and settling after one pass.
+    other = "/* hand-written, keep me */\n"
+    for start in ("", other, f"{FF_IMPORT}\n", f"{FF_IMPORT}\n{other}"):
+        live_text = user_chrome_text(start, True)
+        dead_text = user_chrome_text(start, False)
+        assert FF_IMPORT not in live_text, start
+        assert dead_text.startswith(FF_IMPORT), start
+        assert dead_text.count(FF_IMPORT) == 1, start
+        # Idempotent: a second run must not strip or stack anything.
+        assert user_chrome_text(live_text, True) == live_text, start
+        assert user_chrome_text(dead_text, False) == dead_text, start
+        # Whatever else was in the file survives both directions.
+        if other in start:
+            assert other in live_text and other in dead_text, start
 
     print("self-check ok")
     return 0
