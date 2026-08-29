@@ -17,8 +17,3 @@ nvim/lazy-lock.json
 *.bak-*
 *.quickshell-version
 
-# compiled helper binaries — rebuild from the .swift/.c sources beside them
-sketchybar/helpers/**/bin/
-
-# sketchybar is its own repo, cloned to ~/.config/sketchybar by install.sh
-sketchybar/

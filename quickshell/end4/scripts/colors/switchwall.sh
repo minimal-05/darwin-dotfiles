@@ -38,7 +38,7 @@ MODE_FILE="$STATE_DIR/mode.txt"
 # qs-matugen lives in the quickshell-macos checkout, not inside this config, so
 # no relative path from here stays true -- counting four directories up worked
 # only while this config sat in that checkout, and broke silently the moment it
-# moved. Take it from PATH, which qs-switch populates for everything the shell
+# moved. Take it from PATH, which qs populates for everything the shell
 # spawns, and fall back to the checkout for a plain terminal run.
 MATUGEN="${QS_MATUGEN:-$(command -v qs-matugen 2>/dev/null)}"
 [ -x "$MATUGEN" ] || MATUGEN="$HOME/Projects/quickshell-macos/bin/qs-matugen"

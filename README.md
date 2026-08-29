@@ -1,7 +1,6 @@
 # darwin-dotfiles
 
-macOS desktop config: yabai + skhd for tiling, JankyBorders, a
-[SketchyBar](https://github.com/minimal-05/sketchybar) bar, and
+macOS desktop config: yabai + skhd for tiling, JankyBorders, and
 [Quickshell running natively on macOS](https://github.com/minimal-05/quickshell-macos).
 
 ## Install
@@ -18,7 +17,7 @@ Idempotent — re-run after pulling. `--no-deps` skips Homebrew.
 ## Layout
 
 ```
-quickshell/     the bar I actually run — pills, services, workspace dots
+quickshell/     shell configs, one dir each — `qs -c end4`, `qs -c mine`
 yabai/ skhd/    tiling WM and hotkeys
 karabiner/      media-key grabs, routed to quickshell over IPC
 borders/        active-window border
@@ -27,9 +26,8 @@ btop/ nnn/ starship.toml
 firefox-autoconfig/
 ```
 
-Two directories are separate repos, cloned by `install.sh`:
+Quickshell is a separate repo, cloned by `install.sh`:
 
-- **`sketchybar/`** → [minimal-05/sketchybar](https://github.com/minimal-05/sketchybar)
 - **`~/Projects/quickshell-macos`** → [minimal-05/quickshell-macos](https://github.com/minimal-05/quickshell-macos)
 
 ## Notes

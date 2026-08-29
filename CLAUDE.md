@@ -1,48 +1,53 @@
 # darwin-dotfiles — where things live
 
 This repo (`~/.config`) is the **canonical home for live config**. If a config
-file is loaded by a running program, it lives here — with two exceptions below,
-which are their own repos because they carry build steps of their own.
+file is loaded by a running program, it lives here — with one exception below,
+which is its own repo because it carries a build step of its own.
 
-## Three repos, not one
+## Two repos, not one
 
 | Path | Repo | Holds |
 |---|---|---|
 | `~/.config` | `darwin-dotfiles` | everything here — yabai, skhd, karabiner, kitty, nvim, borders, btop, nnn, starship, **and the quickshell shell config** |
-| `~/.config/sketchybar` | `sketchybar` | the bar. Nested repo, **gitignored here** — do not `git add` it |
 | `~/Projects/quickshell-macos` | `quickshell-macos` | the C++ Cocoa fork **and** its `bin/qs-*` launchers |
 
-`./install.sh` clones the other two and wires them up.
+`./install.sh` clones it and wires it up.
 
 ## The quickshell split — read before editing any .qml
 
-- **Bar, pills, services** → `~/.config/quickshell` (here, in this repo).
-- **C++ backend, launchers, shims** → `~/Projects/quickshell-macos`.
+- **Shell configs** → `~/.config/quickshell/<name>` (here, in this repo).
+- **The binary, launchers, shims** → `~/Projects/quickshell-macos`.
 
-`~/.config/quickshell` **is** end-4's illogical-impulse, adapted for macOS —
-third party, its own licence, ~960 files. It is tracked here anyway: it is live
-config that gets edited constantly, and it spent long enough untracked under
+The binary and the config are separate on purpose: `qs` is one installed
+application, and a config is a directory it is pointed at. There are two:
+
+| | |
+|---|---|
+| `quickshell/end4` | end-4's illogical-impulse, adapted for macOS — third party, its own licence, ~950 files. `qs -c end4` |
+| `quickshell/mine` | a small self-contained bar of our own, one file, no shared code with end4. `qs -c mine` |
+
+**Never put a `shell.qml` at the top of `~/.config/quickshell`.** Quickshell
+registers `<xdg dir>/quickshell/shell.qml` as the `default` config and then
+*ignores every subdirectory* — one top-level file is all it takes to make both
+named configs invisible. That is why the tree was nested on 2026-08-29; before
+that there was exactly one config and no way to run a second.
+
+They are tracked here rather than left loose because they are live config that
+gets edited constantly, and end4 spent long enough untracked under
 `quickshell-macos/examples/` to prove the point of the first rule below.
-
-The hand-written bar that used to live here was removed on 2026-08-29, so there
-is one quickshell config now rather than two competing ones. It is still in
-history: `git log --diff-filter=D -- quickshell/shell.qml`.
 
 There are **no symlinks** anywhere in this layout. `quickshell-macos/shell` and
 `quickshell-macos/examples/` used to point here and are gone; every path is
-written out in full instead. If a script needs this config, it says
-`$HOME/.config/quickshell` — never a relative walk up from its own location,
-which is what silently broke `switchwall.sh` when the config moved.
+written out in full instead. If a script needs a config, it says
+`$HOME/.config/quickshell/<name>` — never a relative walk up from its own
+location, which is what silently broke `switchwall.sh` when the config moved.
 
-Inside it, the panel modules are flat: `modules/bar`, `modules/dock`,
+Inside `end4`, the panel modules are flat: `modules/bar`, `modules/dock`,
 `modules/overview` — not `modules/ii/...` as upstream ships them. The panel
 family that used to be called `ii` is `main`; `waffle` is unchanged. The stored
 `panelFamily` in `~/Library/Preferences/illogical-impulse/config.json` was
 migrated to match, so a config.json restored from an older backup will name a
 family that no longer exists and load no panels.
-
-`~/Projects/qs-macos-spike` is a stale checkout with no Cocoa backend and
-nothing uses it. Don't edit it.
 
 ## Rules
 

@@ -37,7 +37,7 @@ Singleton {
     function load() {}
 
     // The gap the user's windows keep from the screen edges. Matches
-    // bin/qs-switch, which sets the same value before the shell starts. Every
+    // bin/qs-start, which sets the same value before the shell starts. Every
     // edge gets it, the bar's own included on top of the reserved extent, so a
     // window sits the same distance from the bar as from the other three
     // sides -- including Hug, where the bar's corner curve then lands on that
@@ -97,8 +97,8 @@ Singleton {
 
     onDesiredChanged: applyTimer.restart()
 
-    // qs-switch sets a top-bar reservation before launching the shell so the
-    // desktop is not left with sketchybar's; this corrects it for whatever the
+    // qs-start sets a top-bar reservation before launching the shell so the
+    // desktop is not left holding a stale reservation; this corrects it for whatever the
     // config actually says, and is why the two do not fight.
     Component.onCompleted: root.apply()
 }

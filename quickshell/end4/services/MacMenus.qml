@@ -7,14 +7,17 @@ import Quickshell.Io
 /**
  * The frontmost app's menu bar, and Apple's own menu extras, over Accessibility.
  *
- * `menus` is the AX helper the SketchyBar config uses. It stays where it is on
- * purpose: macOS grants Accessibility per binary path, so copying it in here
- * would mean granting it a second time.
+ * `menus` is a small AX helper, built from quickshell-macos and found on PATH --
+ * `qs` puts the fork's bin/ at the front of it, the same way notify-send and
+ * pidof are resolved. It used to live inside the SketchyBar config; that config
+ * is gone, and macOS keys Accessibility on the binary's path, so the grant had
+ * to be given once more at the new path. The bar's "Grant access" button is the
+ * prompt for it.
  */
 Singleton {
     id: root
 
-    readonly property string bin: `${Quickshell.env("HOME")}/.config/sketchybar/helpers/menus/bin/menus`
+    readonly property string bin: "menus"
 
     // Top-level menus of the frontmost app, [{ id, title }]. `-l` prints menu 1
     // onwards, so line N is menu N — menu 0 is Apple's and is never listed.

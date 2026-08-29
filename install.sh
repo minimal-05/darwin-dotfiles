@@ -33,17 +33,6 @@ if [ "${1:-}" != "--no-deps" ]; then
   brew install --quiet --cask kitty karabiner-elements
 fi
 
-say "SketchyBar"
-# Its own repo — see the note in .gitignore.
-if [ -d sketchybar/.git ]; then
-  git -C sketchybar pull --ff-only --quiet || true
-else
-  # Don't clobber a config someone already has here.
-  [ -e sketchybar ] && mv sketchybar "sketchybar.backup.$(date +%s)"
-  git clone --quiet https://github.com/minimal-05/sketchybar.git sketchybar
-fi
-./sketchybar/install.sh
-
 say "Quickshell (macOS fork)"
 if [ -d "$QS_DIR/.git" ]; then
   git -C "$QS_DIR" pull --ff-only --quiet || true
@@ -73,10 +62,9 @@ cat <<EOF
 Done.
 
   Dotfiles     $DOTS
-  SketchyBar   $DOTS/sketchybar        (own repo)
   Quickshell   $QS_DIR                 (own repo)
 
-  Start the bar:  $QS_DIR/bin/qs-switch mine
+  Start the desktop:  $DOTS/startup.sh
 
   yabai's scripting addition needs SIP partially disabled and a manual
   'sudo yabai --load-sa' — see https://github.com/koekeishiya/yabai/wiki
