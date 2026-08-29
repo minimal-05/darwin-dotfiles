@@ -44,9 +44,10 @@ Scope {
         }
     }
 
-    function newWindow(path: string, show = true): var {
+    function newWindow(path: string, show = true, pickMode = ""): var {
         const win = windowComponent.createObject(root, {
-            cascade: root.windows.length
+            cascade: root.windows.length,
+            pickMode: pickMode
         });
         root.windows = [...root.windows, win];
         if (path.length > 0)
@@ -127,13 +128,13 @@ Scope {
         // The shell's "Choose file" wallpaper button. macOS's own open panel is
         // a Finder window in all but name, so it comes here instead; picking an
         // image calls switchwall back the same way the wallpaper grid does.
-        // A window already hidden takes the job -- that is the warm one the
-        // login agent primed -- otherwise picking gets a window of its own so it
-        // cannot hijack one you are browsing in.
+        //
+        // Always a window of its own, born knowing it is a picker: it cannot
+        // hijack one you are browsing in, and yabai reads a window's title when
+        // the window is created, so a window that becomes a picker afterwards is
+        // one yabai has already decided to tile.
         function pickWallpaper(mode: string): void {
-            const win = root.windows.find(w => !w.visible) ?? root.newWindow("", false);
-            win.pickMode = mode === "light" ? "light" : "dark";
-            win.present();
+            root.newWindow("", true, mode === "light" ? "light" : "dark");
         }
 
         // Bind this to a key if you want one press to show and the next to hide.

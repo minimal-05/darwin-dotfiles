@@ -29,7 +29,10 @@ Window {
     signal newWindowRequested
     signal picked(string path, string mode)
 
-    title: "Files"
+    // The title is the handle yabai has on this window: the picker is matched by
+    // it and left unmanaged, so it floats over whatever asked for it rather than
+    // being tiled into the layout. See the rule in bin/qs-finder.
+    title: win.pickMode.length > 0 ? "Choose a wallpaper" : "Files"
 
     minimumWidth: 360
     minimumHeight: 280
