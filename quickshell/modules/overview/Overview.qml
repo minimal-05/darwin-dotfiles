@@ -24,17 +24,6 @@ Scope {
         overviewScope.searchMode = search;
     }
 
-    onSearchModeChanged: if (GlobalStates.overviewOpen && !overviewScope.searchMode)
-        thumbnailCapture.running = true;
-
-    // macOS has no wlr-screencopy, so previews are captured on demand rather
-    // than streamed. Refreshed each time the grid opens.
-    Process {
-        id: thumbnailCapture
-        command: ["qs-window-thumbs"]
-        onExited: GlobalStates.windowThumbRevision++
-    }
-
     function toggleMode(search) {
         // Already open in the other mode: switch instead of closing.
         if (GlobalStates.overviewOpen && overviewScope.searchMode !== search) {
@@ -87,8 +76,6 @@ Scope {
                         searchWidget.cancelSearch();
                     }
                     GlobalFocusGrab.addDismissable(panelWindow);
-                    if (!overviewScope.searchMode)
-                        thumbnailCapture.running = true;
                 }
             }
         }

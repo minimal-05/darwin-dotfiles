@@ -30,7 +30,9 @@ Singleton {
     property bool superReleaseMightTrigger: true
     property bool wallpaperSelectorOpen: false
     property bool workspaceShowNumbers: false
-    // Bumped when qs-window-thumbs finishes, so the overview reloads previews.
+    // Kept for a config that still reads qs-window-thumbs stills. The overview
+    // tiles are live ScreencopyView captures (ScreenCaptureKit, in-process) and
+    // no longer bump this.
     property int windowThumbRevision: 0
     readonly property string windowThumbDir: (Quickshell.env("XDG_RUNTIME_DIR") ?? "/tmp/quickshell") + "/quickshell/thumbs"
 

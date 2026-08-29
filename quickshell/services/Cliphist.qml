@@ -46,11 +46,12 @@ Singleton {
         return !!(/^\d+\t\[\[.*binary data.*\d+x\d+.*\]\]$/.test(entry))
     }
 
-    // macOS keeps no clipboard history at any layer — there is nothing for
-    // cliphist to read and no system store to substitute — so the history stays
-    // empty rather than spawning a process that cannot start.
+    // macOS: `cliphist` is quickshell-macos's stand-in over the history the
+    // shell's pasteboard watch records (Quickshell.Cocoa clipboard); it answers
+    // list/decode/delete/wipe in cliphist's shape, so the stock refresh applies.
     function refresh() {
-        root.entries = []
+        readProc.buffer = []
+        readProc.running = true
     }
 
     function copy(entry) {
