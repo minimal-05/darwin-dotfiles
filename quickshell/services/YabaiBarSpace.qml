@@ -1,34 +1,34 @@
 pragma Singleton
 pragma ComponentBehavior: Bound
 
-import qs
-import qs.modules.common
 import Quickshell
+import Quickshell.Cocoa
 import QtQuick
 
 /**
- * Keeps yabai's reserved screen area in step with the bar.
+ * Keeps yabai's reserved screen area in step with the panels.
  *
- * On Wayland the compositor reads the layer surface's exclusive zone and keeps
- * windows out of it by itself, so upstream only has to set `exclusiveZone` on
- * the bar's PanelWindow. macOS has no such concept and quickshell's Cocoa
- * windows are plain overlays, so the shell has to tell the window manager
- * itself. yabai's whole vocabulary for this is
- * `external_bar all:<top>:<bottom>` plus the four `*_padding` values.
+ * On Wayland the compositor reads each layer surface's exclusive zone and keeps
+ * windows out of it by itself. macOS has no such concept, so the Cocoa backend
+ * sums the visible panels' exclusiveZone per edge into
+ * Quickshell.Cocoa.Reservation and, once told to (below), writes yabai's
+ * `external_bar all:<top>:<bottom>` itself whenever that changes: the bar, the
+ * dock when pinned, a pinned sidebar, all from the zones they already declare,
+ * and gone when they hide. This file no longer works those figures out again
+ * from the config; it only adds the gap policy, which is the config's.
  *
  * What cannot be represented:
- * - external_bar has no left/right fields, so a vertical bar is expressed with
- *   left_padding/right_padding instead. That is weaker: external_bar shrinks
- *   yabai's idea of the display, so even a zoom-fullscreen window stays clear
- *   of it, while padding is only applied when tiling a space -- a
- *   zoom-fullscreen or native-fullscreen window will cover a vertical bar.
+ * - external_bar has no left/right fields, so a vertical bar's reservation is
+ *   folded into left_padding/right_padding here instead. That is weaker:
+ *   external_bar shrinks yabai's idea of the display, so even a zoom-fullscreen
+ *   window stays clear of it, while padding is only applied when tiling a
+ *   space -- a zoom-fullscreen or native-fullscreen window will cover a
+ *   vertical bar.
  * - Both knobs are global config, not per-display, so a bar shown on only some
- *   screens (bar.screenList) still reserves space on all of them.
- * - autoHide with pushWindows on: on Wayland the exclusive zone grows and
- *   shrinks as the bar slides in and out. Doing that here would make yabai
- *   retile every window on the screen on every hover, so the space is reserved
- *   permanently instead -- pushWindows means "windows never sit under the bar",
- *   not "windows move when it appears".
+ *   screens (bar.screenList) still reserves space on all of them; the backend
+ *   publishes the largest reservation per edge across screens.
+ * - autoHide with pushWindows on: the zone follows the bar as it slides in and
+ *   out, as it does on Wayland, so yabai retiles the space each time.
  */
 Singleton {
     id: root
@@ -44,29 +44,11 @@ Singleton {
     // strip of wallpaper instead of on the window.
     readonly property int gap: 8
 
-    readonly property bool vertical: Config.options.bar.vertical
-    // bar.bottom doubles as "right" for a vertical bar -- see the anchors in
-    // modules/verticalBar/VerticalBar.qml.
-    readonly property bool farSide: Config.options.bar.bottom
-
-    // Same expression as the bar's own exclusiveZone binding.
-    readonly property int extent: (root.vertical ? Appearance.sizes.baseVerticalBarWidth : Appearance.sizes.baseBarHeight)
-        + (Config.options.bar.cornerStyle === 1 ? Appearance.sizes.hyprlandGapsOut : 0)
-
-    readonly property bool reserving: GlobalStates.barOpen
-        && !(Config.options.bar.autoHide.enable && !Config.options.bar.autoHide.pushWindows)
-
-    readonly property bool atTop: !root.vertical && !root.farSide && root.reserving
-    readonly property bool atBottom: !root.vertical && root.farSide && root.reserving
-    readonly property bool atLeft: root.vertical && !root.farSide && root.reserving
-    readonly property bool atRight: root.vertical && root.farSide && root.reserving
-
     readonly property list<string> settings: [
-        `external_bar all:${root.atTop ? root.extent : 0}:${root.atBottom ? root.extent : 0}`,
         `top_padding ${root.gap}`,
         `bottom_padding ${root.gap}`,
-        `left_padding ${root.atLeft ? root.extent + root.gap : root.gap}`,
-        `right_padding ${root.atRight ? root.extent + root.gap : root.gap}`,
+        `left_padding ${Reservation.left + root.gap}`,
+        `right_padding ${Reservation.right + root.gap}`,
         // yabairc seeds this too, for the desktop before the shell is up. Owned
         // here as well so the gap between two windows cannot drift away from
         // the gap around them.
@@ -75,19 +57,16 @@ Singleton {
     readonly property string desired: root.settings.join(" | ")
 
     function apply(): void {
-        if (!Platform.isMacOS)
-            return;
-        // One shell so the five settings land as a batch; `command -v` keeps
-        // this quiet on a machine with no yabai installed.
+        // One shell so the settings land as a batch; `command -v` keeps this
+        // quiet on a machine with no yabai installed.
         Quickshell.execDetached(["sh", "-c",
             "command -v yabai >/dev/null 2>&1 || exit 0; "
             + root.settings.map(s => `yabai -m config ${s}`).join("; ")
         ]);
     }
 
-    // The settings window writes the config key by key, so a bar-position
-    // change can arrive as two separate writes (bottom, then vertical).
-    // Debouncing keeps yabai from retiling for the intermediate position.
+    // A vertical bar's reservation arrives as the bar shows and sizes; keep
+    // yabai from retiling for the intermediate figure.
     Timer {
         id: applyTimer
         interval: 120
@@ -97,8 +76,12 @@ Singleton {
 
     onDesiredChanged: applyTimer.restart()
 
-    // qs-switch sets a top-bar reservation before launching the shell so the
-    // desktop is not left with sketchybar's; this corrects it for whatever the
-    // config actually says, and is why the two do not fight.
-    Component.onCompleted: root.apply()
+    Component.onCompleted: {
+        // external_bar is the backend's from here on. qs-switch sets a top-bar
+        // reservation before launching the shell so the desktop is not left
+        // with sketchybar's; the backend replaces it with the zones its panels
+        // actually hold, and that is why the two do not fight.
+        Reservation.applyToYabai = true
+        root.apply()
+    }
 }
