@@ -10,11 +10,13 @@ import Quickshell.Io
  * Simple polled resource usage service with RAM, Swap, and CPU usage.
  *
  * Linux reads /proc/meminfo and /proc/stat. macOS has neither, so the same
- * counters come from `qs-sysstats` (quickshell-macos/bin, on PATH like `qs`):
- * one JSON line of since-boot CPU ticks from host_statistics64, memory from
- * the VM statistics and swap from vm.swapusage. The ticks are cumulative like
- * the /proc/stat cpu line, so both branches diff consecutive samples the same
- * way. This replaces `top -l 1 -n 0`, which cost ~0.26 s of CPU per sample.
+ * counters come from Quickshell.Cocoa.SystemStats, an in-process singleton in
+ * quickshell-macos (src/cocoa/sysstats.mm): since-boot CPU ticks from
+ * host_statistics64, memory from the VM statistics and swap from
+ * vm.swapusage, sampled on its own timer with nothing spawned. The ticks are
+ * cumulative like the /proc/stat cpu line, so both branches diff consecutive
+ * samples the same way (updateCpuFromTicks). The macOS side lives in
+ * ResourceUsageDarwin.qml so the Cocoa import is only parsed there.
  * The property surface is identical to upstream; sizes stay in kB.
  */
 Singleton {
@@ -78,37 +80,34 @@ Singleton {
         previousCpuStats = { total, idle }
     }
 
+    // Linux only: the macOS sampler below runs on the singleton's own clock.
 	Timer {
 		interval: 1
-        running: true
+        running: !Platform.isMacOS
         repeat: true
 		onTriggered: {
-            if (Platform.isMacOS) {
-                statProc.running = true
-            } else {
-                // Reload files
-                fileMeminfo.item.reload()
-                fileStat.item.reload()
+            // Reload files
+            fileMeminfo.item.reload()
+            fileStat.item.reload()
 
-                // Parse memory and swap usage
-                const textMeminfo = fileMeminfo.item.text()
-                memoryTotal = Number(textMeminfo.match(/MemTotal: *(\d+)/)?.[1] ?? 1)
-                memoryFree = Number(textMeminfo.match(/MemAvailable: *(\d+)/)?.[1] ?? 0)
-                swapTotal = Number(textMeminfo.match(/SwapTotal: *(\d+)/)?.[1] ?? 1)
-                swapFree = Number(textMeminfo.match(/SwapFree: *(\d+)/)?.[1] ?? 0)
+            // Parse memory and swap usage
+            const textMeminfo = fileMeminfo.item.text()
+            memoryTotal = Number(textMeminfo.match(/MemTotal: *(\d+)/)?.[1] ?? 1)
+            memoryFree = Number(textMeminfo.match(/MemAvailable: *(\d+)/)?.[1] ?? 0)
+            swapTotal = Number(textMeminfo.match(/SwapTotal: *(\d+)/)?.[1] ?? 1)
+            swapFree = Number(textMeminfo.match(/SwapFree: *(\d+)/)?.[1] ?? 0)
 
-                // Parse CPU usage
-                const textStat = fileStat.item.text()
-                const cpuLine = textStat.match(/^cpu\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/)
-                if (cpuLine) {
-                    const stats = cpuLine.slice(1).map(Number)
-                    const total = stats.reduce((a, b) => a + b, 0)
-                    const idle = stats[3]
-                    updateCpuFromTicks(total, idle)
-                }
-
-                root.updateHistories()
+            // Parse CPU usage
+            const textStat = fileStat.item.text()
+            const cpuLine = textStat.match(/^cpu\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/)
+            if (cpuLine) {
+                const stats = cpuLine.slice(1).map(Number)
+                const total = stats.reduce((a, b) => a + b, 0)
+                const idle = stats[3]
+                updateCpuFromTicks(total, idle)
             }
+
+            root.updateHistories()
             interval = Config.options?.resources?.updateInterval ?? 3000
         }
 	}
@@ -117,25 +116,9 @@ Singleton {
 	Loader { id: fileMeminfo; active: !Platform.isMacOS; sourceComponent: FileView { path: "/proc/meminfo" } }
     Loader { id: fileStat; active: !Platform.isMacOS; sourceComponent: FileView { path: "/proc/stat" } }
 
-    Process {
-        id: statProc
-        // Sizes arrive in bytes. "used" is (active + wired + compressor) pages,
-        // Activity Monitor's definition rather than top's PhysMem line, which
-        // counts file cache as used; available is total minus that.
-        command: ["qs-sysstats"]
-        stdout: StdioCollector {
-            id: statCollector
-            onStreamFinished: {
-                const s = JSON.parse(statCollector.text)
-                root.memoryTotal = s.mem.total / 1024
-                root.memoryFree = s.mem.available / 1024
-                root.swapTotal = s.swap.total / 1024
-                root.swapFree = s.swap.free / 1024
-                root.updateCpuFromTicks(s.cpu.user + s.cpu.system + s.cpu.idle + s.cpu.nice, s.cpu.idle)
-                root.updateHistories()
-            }
-        }
-    }
+    // macOS: Quickshell.Cocoa.SystemStats, zero spawns. A URL rather than an
+    // inline component so the Cocoa import is never parsed on Linux.
+    Loader { active: Platform.isMacOS; source: "ResourceUsageDarwin.qml" }
 
     Process {
         id: findCpuMaxFreqProc
