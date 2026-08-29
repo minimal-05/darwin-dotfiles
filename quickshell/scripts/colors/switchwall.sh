@@ -102,19 +102,36 @@ current_wallpaper() {
 }
 
 if [ -z "$image" ] && [ "$noswitch" -eq 0 ]; then
-    # No image and we are allowed to switch: ask for one.
-    image="$(osascript -e 'POSIX path of (choose file with prompt "Choose a wallpaper" of type {"public.image"})' 2>/dev/null)"
-    [ -n "$image" ] || exit 0   # cancelled
+    # No image and we are allowed to switch: ask for one. The Files app does the
+    # asking rather than macOS's open panel, which is a Finder window in all but
+    # name. It is asynchronous -- picking an image there runs this script again
+    # with --image -- so this run stops here.
+    FINDER="${QS_FINDER:-$(command -v qs-finder 2>/dev/null)}"
+    [ -x "$FINDER" ] || FINDER="$HOME/Projects/quickshell-macos/bin/qs-finder"
+    [ -x "$FINDER" ] || die "file manager not found at $FINDER"
+    exec "$FINDER" --pick-wallpaper "$mode_flag"
 fi
 
 if [ -z "$image" ]; then
-    # The live desktop picture wins over the recorded one. On macOS the wallpaper
-    # can be changed from System Settings or by macOS's own rotation, and then
-    # background.wallpaperPath is only whatever the shell last applied — using it
-    # would regenerate the palette from an image that is no longer on screen.
-    image="$(current_wallpaper)"
+    # The recorded wallpaper wins over the live desktop picture.
+    #
+    # It used to be the other way round, on the reasoning that System Settings
+    # or macOS's own rotation could change the picture behind the shell's back.
+    # That reasoning does not survive Spaces. System Events exposes one
+    # "desktop" per *display*, not per Space, so `set picture of every desktop`
+    # only ever repaints the Space you are on, and `get picture of current
+    # desktop` answers with whatever the Space you are on happens to show. On a
+    # machine with several Spaces those disagree permanently, and reading the
+    # live picture here meant a plain `--noswitch` (the light/dark buttons, the
+    # palette picker) re-themed to whichever Space was focused at the time.
+    #
+    # background.wallpaperPath is the wallpaper the shell was actually told to
+    # use, which is the thing the palette should follow. The live picture is
+    # still the fallback for the case the record cannot cover: a first run, or
+    # a config that has never had a wallpaper set.
+    image="$(jq -r '.background.wallpaperPath // ""' "$SHELL_CONFIG_FILE" 2>/dev/null)"
     if [ -z "$image" ] || [ ! -f "$image" ]; then
-        image="$(jq -r '.background.wallpaperPath // ""' "$SHELL_CONFIG_FILE" 2>/dev/null)"
+        image="$(current_wallpaper)"
         [ -n "$image" ] && [ -f "$image" ] || image=""
     fi
 fi
@@ -122,6 +139,26 @@ fi
 # ---- set the desktop picture --------------------------------------------
 if [ "$noswitch" -eq 0 ] && [ -n "$image" ] && [ -f "$image" ]; then
     osascript -e "tell application \"System Events\" to set picture of every desktop to \"$image\"" >/dev/null 2>&1
+fi
+
+# ---- record the wallpaper in the shell's config --------------------------
+# The shell watches this file, so writing it is what makes the preview
+# thumbnail and every wallpaper-dependent option come alive.
+#
+# This has to happen *before* the palette generation below, not after it.
+# WallpaperWatcher polls the live desktop picture every 5s and re-runs this
+# script whenever it disagrees with background.wallpaperPath. Generating first
+# left the two disagreeing for as long as matugen took -- seconds -- so a poll
+# landing in that window fired a second switchwall against the image this run
+# was already handling: two generators writing colors.json, and two
+# read-modify-write cycles on the config that can drop each other's edits.
+if [ -n "$image" ] && [ -f "$image" ] && [ -f "$SHELL_CONFIG_FILE" ]; then
+    tmp="$SHELL_CONFIG_FILE.tmp.$$"
+    if jq --arg p "$image" '.background.wallpaperPath = $p' "$SHELL_CONFIG_FILE" > "$tmp" 2>/dev/null; then
+        mv "$tmp" "$SHELL_CONFIG_FILE"
+    else
+        rm -f "$tmp"
+    fi
 fi
 
 # ---- generate the palette -----------------------------------------------
@@ -141,18 +178,6 @@ else
     [ -n "$accent" ] || accent="#8f7fd6"
     "$MATUGEN" --color "$accent" --mode "$mode_flag" --scheme "$scheme" --out "$COLORS_FILE" >/dev/null \
         || die "colour generation failed for $accent"
-fi
-
-# ---- record the wallpaper in the shell's config --------------------------
-# The shell watches this file, so writing it is what makes the preview
-# thumbnail and every wallpaper-dependent option come alive.
-if [ -n "$image" ] && [ -f "$image" ] && [ -f "$SHELL_CONFIG_FILE" ]; then
-    tmp="$SHELL_CONFIG_FILE.tmp.$$"
-    if jq --arg p "$image" '.background.wallpaperPath = $p' "$SHELL_CONFIG_FILE" > "$tmp" 2>/dev/null; then
-        mv "$tmp" "$SHELL_CONFIG_FILE"
-    else
-        rm -f "$tmp"
-    fi
 fi
 
 # ---- repaint the apps that follow the palette ----------------------------

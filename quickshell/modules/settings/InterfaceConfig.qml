@@ -818,7 +818,7 @@ ContentPage {
 
         ConfigSwitch {
             buttonIcon: "ad"
-            text: Translation.tr('Use system file picker')
+            text: Translation.tr('Pick wallpapers in the Files app')
             checked: Config.options.wallpaperSelector.useSystemFileDialog
             onCheckedChanged: {
                 Config.options.wallpaperSelector.useSystemFileDialog = checked;

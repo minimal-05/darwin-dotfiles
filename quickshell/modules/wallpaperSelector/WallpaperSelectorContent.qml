@@ -198,14 +198,7 @@ MouseArea {
                                 icon: "wallpaper",
                                 name: "Wallpapers",
                                 path: `${Directories.pictures}/Wallpapers`
-                            },
-                            ...(Config.options.policies.weeb === 1 ? [
-                                    {
-                                        icon: "favorite",
-                                        name: "Homework",
-                                        path: `${Directories.pictures}/homework`
-                                    }
-                                ] : []),]
+                            }]
                         delegate: RippleButton {
                             id: quickDirButton
                             required property var modelData
@@ -366,7 +359,7 @@ MouseArea {
                                 }
                                 text: "open_in_new"
                                 StyledToolTip {
-                                    text: Translation.tr("Use the system file picker instead\nRight-click to make this the default behavior")
+                                    text: Translation.tr("Pick in the Files app instead\nRight-click to make this the default behavior")
                                 }
                             }
 
