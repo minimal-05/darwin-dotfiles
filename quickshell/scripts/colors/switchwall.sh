@@ -132,8 +132,20 @@ if [ -z "$image" ]; then
 fi
 
 # ---- set the desktop picture --------------------------------------------
+# Not `osascript ... set picture of every desktop`: System Events reaches only
+# the Space being stood on, so every other Space, and SystemDefault -- the scope
+# the login window draws from, before any session exists to have a Space -- kept
+# whatever they last held. The shell paints its own background over the desktop,
+# which hides the split until you log out and the login screen shows you the
+# stale one. set-desktop-picture.py writes every scope in the store.
+#
+# Reported rather than discarded, unlike the osascript it replaces: a wallpaper
+# the shell painted but macOS never got is the exact split this is here to close,
+# and silence is what let it drift this far. Non-fatal all the same, since the
+# shell's own background does not depend on it.
 if [ "$noswitch" -eq 0 ] && [ -n "$image" ] && [ -f "$image" ]; then
-    osascript -e "tell application \"System Events\" to set picture of every desktop to \"$image\"" >/dev/null 2>&1
+    "$(dirname "${BASH_SOURCE[0]}")/set-desktop-picture.py" "$image" >/dev/null \
+        || echo "switchwall: could not set the macOS desktop picture" >&2
 fi
 
 # ---- record the wallpaper in the shell's config --------------------------
