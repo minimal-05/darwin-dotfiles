@@ -16,6 +16,7 @@ Item {
     property real maxWindowPreviewHeight: 200
     property real maxWindowPreviewWidth: 300
     property real noPreviewWidth: 220
+    property real noPreviewHeight: 100
     property real windowControlsHeight: 30
     property real buttonPadding: 5
 
@@ -216,8 +217,27 @@ Item {
                                 Item {
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
-                                    implicitHeight: screencopyView.height
+                                    implicitHeight: screencopyView.hasContent ? screencopyView.height : root.noPreviewHeight
                                     implicitWidth: screencopyView.width
+
+                                    // ponytail: a window macOS will not share --
+                                    // minimised, or one of the title-less helper
+                                    // windows CEF apps like Spotify leave in yabai's
+                                    // list -- never delivers a frame, and the row was
+                                    // left a blank box under its title. A glyph reads
+                                    // as "no preview" rather than as a half-drawn
+                                    // popup. Filtering those windows out instead
+                                    // would need a rule for "not a real window" that
+                                    // holds for every app; this needs none.
+                                    MaterialSymbol {
+                                        anchors.centerIn: parent
+                                        visible: !screencopyView.hasContent
+                                        horizontalAlignment: Text.AlignHCenter
+                                        text: "screenshot_monitor"
+                                        iconSize: 40
+                                        color: Appearance.colors.colSubtext
+                                    }
+
                                     ScreencopyView {
                                         id: screencopyView
                                         anchors.centerIn: parent
