@@ -41,16 +41,28 @@ Singleton {
     // is dropped rather than ported, the same way DDC is: on macOS 0 is simply
     // the bottom, the backlight goes off, and the next press brings it back --
     // which is what the native keys do anyway.
+    // Which display a brightness key should act on. Upstream asks the compositor
+    // for the focused monitor; here that is the yabai-backed shim, so with yabai
+    // stopped -- or before it has answered its first query -- focusedMonitor is
+    // null, find() returns undefined and the key silently does nothing. A
+    // brightness key has to work whether or not a window manager is running, so
+    // fall back to the only monitor when there is one, then to the first.
+    function targetMonitor(): var {
+        const focusedName = Hyprland.focusedMonitor?.name ?? "";
+        const focused = focusedName.length > 0
+            ? monitors.find(m => focusedName === m.screen.name)
+            : undefined;
+        return focused ?? monitors[0] ?? null;
+    }
+
     function increaseBrightness(): void {
-        const focusedName = Hyprland.focusedMonitor.name;
-        const monitor = monitors.find(m => focusedName === m.screen.name);
+        const monitor = root.targetMonitor();
         if (monitor)
             monitor.setBrightness(monitor.brightness + 0.05);
     }
 
     function decreaseBrightness(): void {
-        const focusedName = Hyprland.focusedMonitor.name;
-        const monitor = monitors.find(m => focusedName === m.screen.name);
+        const monitor = root.targetMonitor();
         if (monitor)
             monitor.setBrightness(monitor.brightness - 0.05); // setBrightness clamps at 0
     }
@@ -256,8 +268,7 @@ Singleton {
     property int brightnessRampDir: 0
 
     function focusedBrightness(): real {
-        const focusedName = Hyprland.focusedMonitor?.name;
-        const monitor = root.monitors.find(m => focusedName === m.screen.name);
+        const monitor = root.targetMonitor();
         return monitor ? monitor.brightness : -1;
     }
 
