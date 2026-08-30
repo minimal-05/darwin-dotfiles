@@ -1,9 +1,18 @@
 #!/usr/bin/env sh
 
-sudo yabai --load-sa
-yabai -m signal --add event=dock_did_restart action="sudo yabai --load-sa"
-yabai -m signal --add label=sbar_space_created event=space_created action="sketchybar --trigger spaces_refresh"
-yabai -m signal --add label=sbar_space_destroyed event=space_destroyed action="sketchybar --trigger spaces_refresh"
+# The scripting addition is what lets yabai focus a Space. Loading it needs
+# root, and this script runs from launchd with no terminal, so -n makes a
+# missing sudoers rule fail fast instead of hanging on a password prompt.
+# Grant it once with:  sudo visudo -f /etc/sudoers.d/yabai
+#   <user> ALL=(root) NOPASSWD: /opt/homebrew/bin/yabai --load-sa
+sudo -n yabai --load-sa 2>/dev/null || echo "yabai: scripting addition not loaded (see /etc/sudoers.d/yabai)" >&2
+yabai -m signal --add event=dock_did_restart action="sudo -n yabai --load-sa"
+
+# The shell's own signals (quickshell-macos/bin/qs-yabai-signals): a yabai
+# restart drops every signal, and the shell has no event telling it so. This
+# script does know, so it re-registers them; the path is absolute for the
+# same reason skhdrc's and karabiner.json's qs-ipc calls are.
+[ -x "$HOME/Projects/quickshell-macos/bin/qs-yabai-signals" ] && "$HOME/Projects/quickshell-macos/bin/qs-yabai-signals" install
 
 yabai -m config mouse_follows_focus off \
   focus_follows_mouse autofocus \
@@ -14,14 +23,13 @@ yabai -m config mouse_follows_focus off \
   window_opacity_duration 0.2 \
   active_window_opacity 1.0 \
   normal_window_opacity 0.8 \
-  insert_feedback_color 0xff9dd274 \
   split_ratio 0.50 \
   mouse_modifier fn \
   mouse_action1 move \
   mouse_action2 resize \
   mouse_drop_action swap \
-  external_bar all:46:0 \
-  top_padding 8 \
+  external_bar all:40:0 \
+  top_padding 0 \
   bottom_padding 8 \
   left_padding 8 \
   right_padding 8 \
@@ -33,6 +41,16 @@ yabai -m rule --add label="Finder" app="^Finder$" title="(Co(py|nnect)|Move|Info
 yabai -m rule --add label="Safari" app="^Safari$" title="^(General|(Tab|Password|Website|Extension)s|AutoFill|Se(arch|curity)|Privacy|Advance)$" manage=off
 yabai -m rule --add label="About This Mac" app="System Information" title="About This Mac" manage=off
 yabai -m rule --add label="Select file to save to" app="^Inkscape$" title="Select file to save to" manage=off
-yabai -m rule --add bundle="^com.apple.iphonesimulator$" manage=off
+# Shell surfaces are overlays and the settings window is a dialog -- neither
+# belongs in the tiling layout.
+yabai -m rule --add label=quickshell app="^quickshell$" manage=off
+
 yabai -m config layout bsp
 yabai -m rule --apply
+
+# Window border colours -- JankyBorders' ring and this config's own
+# insert_feedback_color, which used to be a green literal in the block above --
+# come from the wallpaper palette. switchwall.sh runs this same script after a
+# colour change; a yabai restart is the other moment they need re-applying, and
+# yabai is the only thing that knows one happened.
+"$HOME/.config/quickshell/end4/scripts/colors/apply-apps.py" --only borders || true

@@ -52,7 +52,12 @@
                                 },
                                 "to": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc brightness decrement"
+                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-brightness down"
+                                    }
+                                ],
+                                "to_after_key_up": [
+                                    {
+                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-brightness release"
                                     }
                                 ]
                             },
@@ -72,7 +77,12 @@
                                 },
                                 "to": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc brightness increment"
+                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-brightness up"
+                                    }
+                                ],
+                                "to_after_key_up": [
+                                    {
+                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-brightness release"
                                     }
                                 ]
                             },
@@ -92,7 +102,7 @@
                                 },
                                 "to": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc audio mute"
+                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-volume mute"
                                     }
                                 ]
                             },
@@ -112,12 +122,12 @@
                                 },
                                 "to": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc audio decrement"
+                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-volume down"
                                     }
                                 ],
                                 "to_after_key_up": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc audio release"
+                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-volume release"
                                     }
                                 ]
                             },
@@ -137,12 +147,12 @@
                                 },
                                 "to": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc audio increment"
+                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-volume up"
                                     }
                                 ],
                                 "to_after_key_up": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc audio release"
+                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-volume release"
                                     }
                                 ]
                             },
@@ -162,12 +172,12 @@
                                 },
                                 "to": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc audio increment"
+                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-volume up"
                                     }
                                 ],
                                 "to_after_key_up": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc audio release"
+                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-volume release"
                                     }
                                 ]
                             },
@@ -187,12 +197,12 @@
                                 },
                                 "to": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc audio decrement"
+                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-volume down"
                                     }
                                 ],
                                 "to_after_key_up": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc audio release"
+                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-volume release"
                                     }
                                 ]
                             },
@@ -212,7 +222,54 @@
                                 },
                                 "to": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc audio mute"
+                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-volume mute"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "description": "Cmd+Shift+3/4 screenshot through Quickshell (macOS never sees the key, so its own capture never runs)",
+                        "manipulators": [
+                            {
+                                "type": "basic",
+                                "from": {
+                                    "key_code": "3",
+                                    "modifiers": {
+                                        "mandatory": [
+                                            "command",
+                                            "shift"
+                                        ],
+                                        "optional": [
+                                            "control",
+                                            "caps_lock"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc region fullscreen"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "basic",
+                                "from": {
+                                    "key_code": "4",
+                                    "modifiers": {
+                                        "mandatory": [
+                                            "command",
+                                            "shift"
+                                        ],
+                                        "optional": [
+                                            "control",
+                                            "caps_lock"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc region screenshot"
                                     }
                                 ]
                             }

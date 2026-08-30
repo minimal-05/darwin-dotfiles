@@ -18,7 +18,7 @@ Idempotent — re-run after pulling. `--no-deps` skips Homebrew.
 ## Layout
 
 ```
-quickshell/     the bar I actually run — pills, services, workspace dots
+quickshell/     shell configs, one dir each — `qs -c end4`, `qs -c mine`
 yabai/ skhd/    tiling WM and hotkeys
 karabiner/      media-key grabs, routed to quickshell over IPC
 borders/        active-window border
@@ -33,6 +33,18 @@ Two directories are separate repos, cloned by `install.sh`:
 - **`~/Projects/quickshell-macos`** → [minimal-05/quickshell-macos](https://github.com/minimal-05/quickshell-macos)
 
 ## Notes
+
+- **Never put a `shell.qml` at the top of `~/.config/quickshell`.** Quickshell
+  registers `<xdg dir>/quickshell/shell.qml` as the `default` config and then
+  ignores every subdirectory — one stray file makes `end4` and `mine` both
+  invisible, with no error at all. Configs are directories: `qs -c end4`.
+- Scripts name the config directory **in full** (`$HOME/.config/quickshell/end4`),
+  never a relative walk up from their own location — a relative walk is what
+  silently broke `switchwall.sh` the last time this tree moved.
+- `karabiner/karabiner.json` and `skhd/skhdrc` call `qs-ipc` by **absolute path**
+  because Karabiner does not expand `~`. `install.sh` rewrites them; keep it so.
+- Generated files are tracked (`kitty/theme.conf` and friends). The colour
+  scripts overwrite them on every wallpaper change.
 
 - The media keys are grabbed by **Karabiner** at the HID level and forwarded to
   Quickshell over IPC. macOS never sees the keypress, so it never draws its own
