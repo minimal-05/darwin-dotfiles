@@ -46,7 +46,9 @@ StyledPopup {
         }
 
         Column {
-            visible: ResourceUsage.swapTotal > 0
+            // ponytail: macOS grows swapfiles on demand, so total 0 means
+            // "none allocated yet", not "no swap" as it does on Linux.
+            visible: ResourceUsage.swapTotal > 0 || Platform.isMacOS
             anchors.top: parent.top
             spacing: 8
 
