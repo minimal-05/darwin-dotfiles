@@ -47,12 +47,26 @@ Singleton {
         const ignoredRegexes = ignoredRegexStrings.map(pattern => new RegExp(pattern, "i"));
         // Open windows
         for (const toplevel of ToplevelManager.toplevels.values) {
-            if (ignoredRegexes.some(re => re.test(toplevel.appId))) continue;
-            if (!map.has(toplevel.appId.toLowerCase())) map.set(toplevel.appId.toLowerCase(), ({
+            // Files.app and Settings.app (qs-make-app) exec a copy of the
+            // shared binary renamed to "quickshell-engine" inside their own
+            // bundle, so yabai reports every one of their windows as app
+            // "quickshell-engine" -- which is also a default ignoredAppRegexes
+            // entry, so both windows vanished from the dock: their pins never
+            // lit up, and hovering them never showed a preview, even while
+            // the window was open and focused. The window title is the one
+            // thing that still tells them apart (it is the mini-app's own
+            // name, e.g. "Files"), so group by that instead whenever it is
+            // populated. An untitled "quickshell-engine" toplevel is the
+            // invisible root surface every quickshell process starts with,
+            // not a real window, so it still falls through to ignoredRegexes.
+            const isMiniApp = toplevel.appId.toLowerCase() === "quickshell-engine" && toplevel.title.length > 0;
+            const appId = isMiniApp ? toplevel.title : toplevel.appId;
+            if (!isMiniApp && ignoredRegexes.some(re => re.test(appId))) continue;
+            if (!map.has(appId.toLowerCase())) map.set(appId.toLowerCase(), ({
                 pinned: false,
                 toplevels: []
             }));
-            map.get(toplevel.appId.toLowerCase()).toplevels.push(toplevel);
+            map.get(appId.toLowerCase()).toplevels.push(toplevel);
         }
 
         var values = [];

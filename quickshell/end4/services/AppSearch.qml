@@ -12,6 +12,14 @@ Singleton {
     id: root
     property bool sloppySearch: Config.options?.search.sloppy ?? false
     property real scoreThreshold: 0.2
+    // guessIcon's fuzzy fallback runs on Fuzzy.go's own normalized score,
+    // not this file's Levenshtein-based scoreThreshold -- a different scale
+    // entirely. A real match (an exact name, or one truncated like "Firefo")
+    // scores 0.8-0.97; an appId that just happens to be a subsequence of some
+    // unrelated app's full bundle path (icons here are matched by their
+    // absolute path, e.g. "Todoist" against "/System/.../Audio MIDI
+    // Setup.app") can still score around 0.2. 0.5 sits well clear of both.
+    property real iconGuessThreshold: 0.5
     property var substitutions: ({
         "code-url-handler": "visual-studio-code",
         "Code": "visual-studio-code",
@@ -136,21 +144,28 @@ Singleton {
         const undescoreToKebabGuess = getUndescoreToKebabAppName(str);
         if (iconExists(undescoreToKebabGuess)) return undescoreToKebabGuess;
 
-        // Search in desktop entries
+        // Search in desktop entries. Fuzzy.go always returns its best
+        // candidate, even a coincidental one -- "notion" is a subsequence of
+        // plenty of unrelated icon/app names -- and this pick is automatic,
+        // with no person looking at the ranked list to reject a bad top
+        // result. Below scoreThreshold, a wrong-but-real icon is worse than
+        // the "no icon" glyph, so require the same confidence bar sloppy
+        // name search already holds candidates to.
         const iconSearchResults = Fuzzy.go(str, preppedIcons, {
             all: true,
             key: "name"
-        }).map(r => {
-            return r.obj.entry
         });
-        if (iconSearchResults.length > 0) {
-            const guess = iconSearchResults[0].icon
+        if (iconSearchResults.length > 0 && iconSearchResults[0].score >= root.iconGuessThreshold) {
+            const guess = iconSearchResults[0].obj.entry.icon
             if (iconExists(guess)) return guess;
         }
 
-        const nameSearchResults = root.fuzzyQuery(str);
-        if (nameSearchResults.length > 0) {
-            const guess = nameSearchResults[0].icon
+        const nameSearchResults = Fuzzy.go(str, preppedNames, {
+            all: true,
+            key: "name"
+        });
+        if (nameSearchResults.length > 0 && nameSearchResults[0].score >= root.iconGuessThreshold) {
+            const guess = nameSearchResults[0].obj.entry.icon
             if (iconExists(guess)) return guess;
         }
 
