@@ -81,17 +81,20 @@ cat > "$BAR" <<PLIST
     <key>ProgramArguments</key>
     <array>
         <string>$QS/bin/qs-start</string>
-        <string>-p</string>
-        <string>$HOME/.config/quickshell/shell.qml</string>
     </array>
-    <!-- qs-start execs quickshell, so this job's lifetime is the real process
+    <!-- No -p: configs are directories under ~/.config/quickshell and the
+         binary defaults QS_CONFIG_NAME to \`end4\` (src/launch/tools.cpp), so
+         naming a path here would only be a second place to update. Run a
+         different one with \`qs -c mine\`.
+
+         qs-start execs quickshell, so this job's lifetime is the real process
          rather than a launcher that returns immediately.
 
-         No KeepAlive on purpose: \`qs-switch sketchybar\` kills the bar
-         deliberately, and launchd would simply bring it back and fight it.
+         No KeepAlive on purpose: the shell is killed deliberately often enough
+         (qs-dev restarts it in place) that launchd would fight it.
          ponytail: if the bar starts dying on you (quickshell exits when the
          config tree it is rooted in changes, and ~/.config is a git repo),
-         add KeepAlive here and teach qs-switch to bootout first. -->
+         add KeepAlive here and bootout before restarting. -->
     <key>RunAtLoad</key><true/>
     <key>ProcessType</key><string>Interactive</string>
     <key>StandardOutPath</key><string>/tmp/quickshell-bar.log</string>

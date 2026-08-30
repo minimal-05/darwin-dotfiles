@@ -26,7 +26,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-CONFIG = Path.home() / ".config/quickshell"
+CONFIG = Path.home() / ".config/quickshell/end4"
 STATE = Path.home() / "Library/Preferences/quickshell/State/user/generated"
 COLORS = STATE / "colors.json"
 MODE = STATE / "mode.txt"
