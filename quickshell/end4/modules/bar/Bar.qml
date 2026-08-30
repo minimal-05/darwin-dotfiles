@@ -25,8 +25,16 @@ Scope {
         }
         LazyLoader {
             id: barLoader
-            active: GlobalStates.barOpen && !GlobalStates.screenLocked
             required property ShellScreen modelData
+            // Same fullscreen check as Background.qml/ScreenCorners.qml: dropping
+            // `active` entirely, rather than just hiding barContent, also takes the
+            // hover MouseArea/mask and exclusiveZone with it -- nothing left behind
+            // for the fullscreen window to fight with.
+            property HyprlandMonitor monitor: Hyprland.monitorFor(modelData)
+            property list<HyprlandWorkspace> workspacesForMonitor: Hyprland.workspaces.values.filter(workspace => workspace.monitor && workspace.monitor.name == monitor.name)
+            property var activeWorkspaceWithFullscreen: workspacesForMonitor.filter(workspace => ((workspace.toplevels.values.filter(window => window.wayland?.fullscreen)[0] != undefined) && workspace.active))[0]
+            active: GlobalStates.barOpen && !GlobalStates.screenLocked
+                && !(Config.options.bar.hideWhenFullscreen && activeWorkspaceWithFullscreen != undefined)
             component: PanelWindow { // Bar window
                 id: barRoot
                 screen: barLoader.modelData
