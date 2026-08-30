@@ -161,4 +161,21 @@ Singleton {
         // Give up
         return "application-x-executable";
     }
+
+    /**
+     * The desktop entry for a window's appId.
+     *
+     * heuristicLookup() alone is not enough here: the entries qs-index-apps
+     * writes are keyed by bundle id ("org.mozilla.firefox"), while yabai --
+     * and so ToplevelManager, and so every pin -- names an app the way macOS
+     * displays it ("Firefox"). Nothing matched, so `desktopEntry` was null for
+     * every app in the dock and clicking one that was not already running did
+     * nothing at all. Fall back to matching on the entry's name.
+     */
+    function lookup(str: string): var {
+        if (!str || str.length == 0) return null;
+        return DesktopEntries.heuristicLookup(str)
+            ?? list.find(a => a.name.toLowerCase() === str.toLowerCase())
+            ?? null;
+    }
 }

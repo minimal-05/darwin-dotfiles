@@ -1,6 +1,7 @@
 import qs.services
 import qs.modules.common
 import qs.modules.common.functions
+import qs.modules.common.widgets
 import Qt5Compat.GraphicalEffects
 import QtQuick
 import QtQuick.Layouts
@@ -18,7 +19,10 @@ DockButton {
     property bool appIsActive: appToplevel.toplevels.find(t => (t.activated == true)) !== undefined
 
     readonly property bool isSeparator: appToplevel.appId === "SEPARATOR"
-    property var desktopEntry: DesktopEntries.heuristicLookup(appToplevel.appId)
+    property var desktopEntry: AppSearch.lookup(appToplevel.appId)
+    // The entry's icon is the app bundle's own path, which NSWorkspace always
+    // resolves. guessIcon is for a window whose app qs-index-apps never saw.
+    readonly property string iconName: root.desktopEntry?.icon ?? AppSearch.guessIcon(appToplevel.appId)
     enabled: !isSeparator
     implicitWidth: isSeparator ? 1 : implicitHeight - topInset - bottomInset
 
@@ -26,7 +30,7 @@ DockButton {
         target: DesktopEntries
 
         function onApplicationsChanged() {
-            root.desktopEntry = DesktopEntries.heuristicLookup(appToplevel.appId);
+            root.desktopEntry = AppSearch.lookup(appToplevel.appId);
         }
     }
 
@@ -94,9 +98,31 @@ DockButton {
                     verticalCenter: parent.verticalCenter
                 }
                 active: !root.isSeparator
-                sourceComponent: IconImage {
-                    source: Quickshell.iconPath(AppSearch.guessIcon(appToplevel.appId), "image-missing")
+                // An appId that names no installed app -- a pin left behind by
+                // an uninstall, or one carried over from a Linux config --
+                // reaches guessIcon's last resort, "application-x-executable",
+                // which is an XDG theme name NSWorkspace has never heard of. The
+                // "image-missing" fallback then drew a broken picture that never
+                // resolved into anything. A glyph reads as "no icon" rather than
+                // as a rendering fault.
+                sourceComponent: AppSearch.iconExists(root.iconName) ? appIcon : missingIcon
+            }
+
+            Component {
+                id: appIcon
+                IconImage {
+                    source: Quickshell.iconPath(root.iconName)
                     implicitSize: root.iconSize
+                }
+            }
+
+            Component {
+                id: missingIcon
+                MaterialSymbol {
+                    horizontalAlignment: Text.AlignHCenter
+                    text: "web_asset_off"
+                    iconSize: root.iconSize
+                    color: Appearance.colors.colOnLayer0
                 }
             }
 

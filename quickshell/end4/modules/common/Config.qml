@@ -362,9 +362,21 @@ Singleton {
                 property real hoverRegionHeight: 20
                 property bool pinnedOnStartup: false
                 property bool hoverToReveal: true // When false, only reveals on empty workspace
+                // Names as yabai spells them, which is what ToplevelManager
+                // reports, so a pinned app and its open windows merge into one
+                // button. Upstream pins org.kde.dolphin here; nothing on macOS
+                // answers to that, and an appId naming no installed app is
+                // exactly the case that used to draw a broken picture.
                 property list<string> pinnedApps: [ // IDs of pinned entries
-                    "org.kde.dolphin", "kitty",]
-                property list<string> ignoredAppRegexes: []
+                    "Files", "Settings", "kitty",]
+                // ponytail: Files and Settings are standalone quickshell
+                // processes, so yabai reports their windows as "quickshell" --
+                // one appId for two apps plus the shell itself. Their pins
+                // above carry the icons; the raw windows would only add a
+                // third button that is neither. Splitting them needs the
+                // toplevel shim to name a window by the config its process
+                // runs, not by its bundle.
+                property list<string> ignoredAppRegexes: ["^quickshell$"]
             }
 
             property JsonObject interactions: JsonObject {

@@ -8,6 +8,7 @@
 #   skhd       com.jackielii.skhd         (skhd --start-service)
 #   borders    homebrew.mxcl.borders      (brew services)
 #   Files.app  org.quickshell.files       (written by qs-make-app)
+#   Settings.app                          (written by qs-make-app, no agent)
 #   the bar    org.quickshell.bar         (written below)
 #
 # Plus `yabai --load-sa`, which is the one step launchd cannot do for you: it
@@ -66,10 +67,13 @@ grep -qF "$(readlink -f "$(command -v skhd)")" "$SKHD_PLIST" 2>/dev/null || {
 ok skhd --start-service
 say "borders"; ok brew services start borders
 
-# The hidden warm-start of finder.qml. qs-make-app writes its own agent and
-# restarts the running process, so only call it when it has not been set up.
-say "Files.app"
-[ -f "$AGENTS/org.quickshell.files.plist" ] || "$QS/bin/qs-make-app"
+# The Spotlight- and dock-launchable wrappers around finder.qml and settings.qml,
+# plus the hidden warm-start of finder.qml. qs-make-app writes Files' agent and
+# restarts the running process, so only call it when one of the two is missing.
+say "Files.app, Settings.app"
+if [ ! -f "$AGENTS/org.quickshell.files.plist" ] || [ ! -d "$HOME/Applications/Settings.app" ]; then
+    "$QS/bin/qs-make-app"
+fi
 
 say "bar"
 cat > "$BAR" <<PLIST
