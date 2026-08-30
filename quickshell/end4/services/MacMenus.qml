@@ -14,7 +14,10 @@ import Quickshell.Io
 Singleton {
     id: root
 
-    readonly property string bin: `${Quickshell.env("HOME")}/.config/sketchybar/helpers/menus/bin/menus`
+    // Bare name, resolved from PATH like notify-send and pidof: the binary puts
+    // Quickshell.app/Contents/Resources/tools first. It used to be an absolute
+    // path into the SketchyBar config, which is gone.
+    readonly property string bin: "menus"
 
     // Top-level menus of the frontmost app, [{ id, title }]. `-l` prints menu 1
     // onwards, so line N is menu N — menu 0 is Apple's and is never listed.
