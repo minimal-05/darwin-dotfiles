@@ -1,9 +1,12 @@
 #!/usr/bin/env sh
 
-sudo yabai --load-sa
-yabai -m signal --add event=dock_did_restart action="sudo yabai --load-sa"
-yabai -m signal --add label=sbar_space_created event=space_created action="sketchybar --trigger spaces_refresh"
-yabai -m signal --add label=sbar_space_destroyed event=space_destroyed action="sketchybar --trigger spaces_refresh"
+# The scripting addition is what lets yabai focus a Space. Loading it needs
+# root, and this script runs from launchd with no terminal, so -n makes a
+# missing sudoers rule fail fast instead of hanging on a password prompt.
+# Grant it once with:  sudo visudo -f /etc/sudoers.d/yabai
+#   <user> ALL=(root) NOPASSWD: /opt/homebrew/bin/yabai --load-sa
+sudo -n yabai --load-sa 2>/dev/null || echo "yabai: scripting addition not loaded (see /etc/sudoers.d/yabai)" >&2
+yabai -m signal --add event=dock_did_restart action="sudo -n yabai --load-sa"
 
 # The shell's own signals (quickshell-macos/bin/qs-yabai-signals): a yabai
 # restart drops every signal, and the shell has no event telling it so. This
@@ -26,8 +29,8 @@ yabai -m config mouse_follows_focus off \
   mouse_action1 move \
   mouse_action2 resize \
   mouse_drop_action swap \
-  external_bar all:46:0 \
-  top_padding 8 \
+  external_bar all:40:0 \
+  top_padding 0 \
   bottom_padding 8 \
   left_padding 8 \
   right_padding 8 \
@@ -39,6 +42,5 @@ yabai -m rule --add label="Finder" app="^Finder$" title="(Co(py|nnect)|Move|Info
 yabai -m rule --add label="Safari" app="^Safari$" title="^(General|(Tab|Password|Website|Extension)s|AutoFill|Se(arch|curity)|Privacy|Advance)$" manage=off
 yabai -m rule --add label="About This Mac" app="System Information" title="About This Mac" manage=off
 yabai -m rule --add label="Select file to save to" app="^Inkscape$" title="Select file to save to" manage=off
-yabai -m rule --add bundle="^com.apple.iphonesimulator$" manage=off
 yabai -m config layout bsp
 yabai -m rule --apply
