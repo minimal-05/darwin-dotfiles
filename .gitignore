@@ -22,3 +22,6 @@ sketchybar/helpers/**/bin/
 
 # sketchybar is its own repo, cloned to ~/.config/sketchybar by install.sh
 sketchybar/
+
+# skhdrc backup from the native-hotkeys switch — git is the backup now
+skhd/skhdrc.pre-native-hotkeys
