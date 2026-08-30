@@ -74,8 +74,11 @@ DockButton {
         root.desktopEntry?.execute();
     }
 
+    // ponytail: right-click used to pin and unpin outright, which is one item
+    // of a real dock menu and not the one anybody reaches for. Pinning is still
+    // here, one row down, under its macOS name.
     altAction: () => {
-        TaskbarApps.togglePin(appToplevel.appId);
+        appListRoot.openMenu(root);
     }
 
     contentItem: Loader {

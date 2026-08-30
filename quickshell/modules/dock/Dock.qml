@@ -66,7 +66,15 @@ Scope { // Scope
                     topMargin: dockRoot.reveal ? 0 : Config.options?.dock.hoverToReveal ? (dockRoot.implicitHeight - Config.options.dock.hoverRegionHeight) : (dockRoot.implicitHeight + 1)
                     horizontalCenter: parent.horizontalCenter
                 }
-                implicitWidth: dockHoverRegion.implicitWidth + Appearance.sizes.elevationMargin * 2
+                // ponytail: the reveal trigger and the dock's hit region used to be
+                // the width of the pill itself, so the dock only opened if you hit
+                // a ~400px strip in the middle of the bottom edge, and only stayed
+                // open while you were over that same strip. Span the window
+                // instead. The pill is centred by its own anchors and does not
+                // stretch with this, and the area around it stays transparent --
+                // macOS hit-tests a non-opaque window against its rendered alpha,
+                // so clicks there still pass through to whatever is underneath.
+                implicitWidth: dockRoot.width
                 hoverEnabled: true
 
                 Behavior on anchors.topMargin {
@@ -77,6 +85,23 @@ Scope { // Scope
                     id: dockHoverRegion
                     anchors.fill: parent
                     implicitWidth: dockBackground.implicitWidth
+
+                    // ponytail: hiding works by pushing dockMouseArea down until only
+                    // hoverRegionHeight of it is still inside the window -- but the
+                    // dock is drawn inside that same item, so exactly that many pixels
+                    // of the dock's top edge stayed on screen. Invisible while the
+                    // trigger was 2px, an obvious sliver once it became big enough to
+                    // aim at. Shift the visuals the rest of the way down so "how big
+                    // is the trigger" and "how far does the dock hide" stop being the
+                    // same number. A transform, so the mask and the hover region --
+                    // both dockMouseArea's geometry -- are untouched.
+                    transform: Translate {
+                        y: dockRoot.reveal ? 0 : (Config.options?.dock.hoverRegionHeight ?? 0)
+
+                        Behavior on y {
+                            animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                        }
+                    }
 
                     Item { // Wrapper for the dock background
                         id: dockBackground

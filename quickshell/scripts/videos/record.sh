@@ -76,8 +76,11 @@ if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE" 2>/dev/null)" 2>/dev/null; the
     exit 0
 fi
 rm -f "$PIDFILE"
-if pgrep -x screencapture >/dev/null 2>&1; then
-    pkill -INT -x screencapture
+# Only the -v form records video: a still capture is a `screencapture` process
+# too, and TempScreenshotProcess runs one alongside this, so matching the bare
+# name reads a screenshot as a recording in progress.
+if pgrep -fx '(/[^ ]*)?/?screencapture -v.*' >/dev/null 2>&1; then
+    pkill -INT -fx '(/[^ ]*)?/?screencapture -v.*'
     notify "Recording stopped" "Saved to $RECORDING_DIR"
     exit 0
 fi

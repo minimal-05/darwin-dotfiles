@@ -20,31 +20,7 @@ Rectangle {
 
     signal clicked
     signal activated
-
-    // Material Symbols rather than a freedesktop icon theme: macOS has no icon
-    // theme installed, and the shell already ships the symbol font.
-    readonly property string icon: {
-        if (root.modelData.name.endsWith(".app"))
-            return "apps";
-        if (root.isDir)
-            return "folder";
-        const ext = root.modelData.name.split(".").pop().toLowerCase();
-        if (["png", "jpg", "jpeg", "gif", "webp", "heic", "svg", "bmp", "tiff", "icns"].includes(ext))
-            return "image";
-        if (["mp4", "mov", "mkv", "webm", "avi", "m4v"].includes(ext))
-            return "movie";
-        if (["mp3", "flac", "wav", "m4a", "aac", "ogg", "opus"].includes(ext))
-            return "music_note";
-        if (["zip", "tar", "gz", "bz2", "xz", "7z", "rar", "dmg"].includes(ext))
-            return "folder_zip";
-        if (ext === "pdf")
-            return "picture_as_pdf";
-        if (["js", "ts", "py", "qml", "c", "cpp", "h", "hpp", "rs", "go", "sh", "json", "yml", "yaml", "toml", "html", "css", "swift", "java", "rb", "lua", "nix"].includes(ext))
-            return "code_blocks";
-        if (["txt", "md", "rtf", "log"].includes(ext))
-            return "description";
-        return "draft";
-    }
+    signal contextRequested(real sx, real sy)
 
     function humanSize(bytes: real): string {
         if (bytes < 1024)
@@ -63,6 +39,15 @@ Rectangle {
     radius: Appearance.rounding.small
     color: root.selected ? Appearance.colors.colSecondaryContainer : (mouseArea.containsMouse ? Appearance.colors.colLayer1Hover : "transparent")
 
+    // Dragging out to another application. text/uri-list is the mime type Qt
+    // hands to macOS as a file drag, so the drop lands wherever a Finder drag
+    // would. Automatic means a real platform drag rather than a QML-internal one.
+    Drag.dragType: Drag.Automatic
+    Drag.supportedActions: Qt.CopyAction
+    Drag.mimeData: ({
+            "text/uri-list": "file://" + encodeURI(root.modelData.path)
+        })
+
     Behavior on color {
         ColorAnimation {
             duration: Appearance.animation.elementMoveFast.duration
@@ -78,7 +63,7 @@ Rectangle {
         spacing: 12
 
         MaterialSymbol {
-            text: root.icon
+            text: root.modelData.icon
             iconSize: Appearance.font.pixelSize.huge
             fill: root.isDir ? 1 : 0
             color: root.selected ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colPrimary
@@ -116,8 +101,44 @@ Rectangle {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
 
-        onClicked: root.clicked()
+        property real pressX: 0
+        property real pressY: 0
+        property bool dragStarted: false
+
+        onPressed: mouse => {
+            mouseArea.pressX = mouse.x;
+            mouseArea.pressY = mouse.y;
+            mouseArea.dragStarted = false;
+        }
+        onPositionChanged: mouse => {
+            if (!mouseArea.pressed || mouseArea.dragStarted)
+                return;
+            // A few pixels of slop so a shaky click stays a click.
+            if (Math.abs(mouse.x - mouseArea.pressX) < 6 && Math.abs(mouse.y - mouseArea.pressY) < 6)
+                return;
+            mouseArea.dragStarted = true;
+            // dragType Automatic turns this into a real platform drag as soon as
+            // the attached object goes active; startDrag() is for Drag.None and
+            // refuses to run before that.
+            root.Drag.active = true;
+        }
+        onReleased: {
+            root.Drag.active = false;
+            mouseArea.dragStarted = false;
+        }
+        onClicked: mouse => {
+            if (mouse.button === Qt.RightButton) {
+                // Scene coordinates: the menu overlay fills the window.
+                const at = root.mapToItem(null, mouse.x, mouse.y);
+                root.clicked();
+                root.contextRequested(at.x, at.y);
+                return;
+            }
+            if (!mouseArea.dragStarted)
+                root.clicked();
+        }
         onDoubleClicked: root.activated()
     }
 }

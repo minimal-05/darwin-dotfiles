@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 
+import qs.modules.captureShelf
 import qs.modules.common
 import qs.modules.waffle.actionCenter
 import qs.modules.waffle.background
@@ -24,6 +25,7 @@ import qs.modules.screenTranslator
 import qs.modules.wallpaperSelector
 
 Scope {
+    PanelLoader { component: CaptureShelf {} }
     PanelLoader { component: WaffleActionCenter {} }
     PanelLoader { component: WaffleBar {} }
     PanelLoader { component: WaffleBackground {} }

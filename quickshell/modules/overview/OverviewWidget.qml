@@ -28,12 +28,20 @@ Item {
     property real scale: Config.options.overview.scale
     property color activeBorderColor: Appearance.colors.colSecondary
 
-    property real workspaceImplicitWidth: (monitorData?.transform % 2 === 1) ? 
-        ((monitor.height - monitorData?.reserved[0] - monitorData?.reserved[2]) * root.scale / monitor.scale) :
-        ((monitor.width - monitorData?.reserved[0] - monitorData?.reserved[2]) * root.scale / monitor.scale)
-    property real workspaceImplicitHeight: (monitorData?.transform % 2 === 1) ? 
-        ((monitor.width - monitorData?.reserved[1] - monitorData?.reserved[3]) * root.scale / monitor.scale) :
-        ((monitor.height - monitorData?.reserved[1] - monitorData?.reserved[3]) * root.scale / monitor.scale)
+    // Measured from monitorData, not the HyprlandMonitor shim. The tiles size
+    // themselves from yabai's point-space geometry (windowData.size * scale),
+    // while the shim reports the screen in physical pixels against Qt's device
+    // pixel ratio -- and with QT_SCALE_FACTOR in play those two are not the
+    // same unit. Subtracting yabai's point-space insets from a pixel width made
+    // every cell about 5% larger than the windows it holds, so a maximised
+    // window sat flush against the top left with a gap down the right and
+    // bottom edges. Same source for both, and a maximised window fills its cell.
+    property real workspaceImplicitWidth: (monitorData?.transform % 2 === 1) ?
+        ((monitorData?.height - monitorData?.reserved[0] - monitorData?.reserved[2]) * root.scale) :
+        ((monitorData?.width - monitorData?.reserved[0] - monitorData?.reserved[2]) * root.scale)
+    property real workspaceImplicitHeight: (monitorData?.transform % 2 === 1) ?
+        ((monitorData?.width - monitorData?.reserved[1] - monitorData?.reserved[3]) * root.scale) :
+        ((monitorData?.height - monitorData?.reserved[1] - monitorData?.reserved[3]) * root.scale)
     property real largeWorkspaceRadius: Appearance.rounding.large
     property real smallWorkspaceRadius: Appearance.rounding.verysmall
 
@@ -90,6 +98,26 @@ Item {
     function getWsInCell(ri, ci) {
         // 1-indexed workspace, 0-indexed row and column index
         return (Config.options.overview.orderBottomUp ? Config.options.overview.rows - ri - 1 : ri) * Config.options.overview.columns + (Config.options.overview.orderRightLeft ? Config.options.overview.columns - ci - 1 : ci) + 1
+    }
+
+    Timer {
+        id: settleRefresh
+        // HyprlandData only refreshes when the Hyprland shim's poll notices a
+        // change, and that poll is a second wide — so a drop sat visibly stale
+        // for up to a second. Ask directly instead. yabai needs a moment to
+        // apply, hence a short burst rather than one shot.
+        property int ticks: 0
+        interval: 80
+        repeat: true
+        onTriggered: {
+            HyprlandData.updateWindowList();
+            if (++settleRefresh.ticks >= 5) settleRefresh.stop();
+        }
+
+        function kick(): void {
+            settleRefresh.ticks = 0;
+            settleRefresh.restart();
+        }
     }
 
     StyledRectangularShadow {
@@ -319,11 +347,11 @@ Item {
                                 }
                             }
 
-                            // Either way the tile goes back to tracking the window
-                            // data, which the next yabai poll refreshes — so it
-                            // animates to where the window actually ended up
-                            // instead of staying under the cursor.
-                            window.resetGeometry()
+                            // Keep the dropped position and ask for fresh data
+                            // now; the tile re-binds the moment yabai reports
+                            // the move, instead of snapping back and jumping.
+                            window.holdGeometry()
+                            settleRefresh.kick()
                         }
                         onClicked: (event) => {
                             if (!windowData) return;
@@ -403,7 +431,8 @@ Item {
                                 if (dw !== 0 || dh !== 0) {
                                     Hyprland.dispatch(`hl.dsp.window.resize({ dw = ${dw}, dh = ${dh}, window = "address:${window.windowData?.address}" })`)
                                 }
-                                window.resetGeometry()
+                                window.holdGeometry()
+                                settleRefresh.kick()
                             }
                         }
                     }

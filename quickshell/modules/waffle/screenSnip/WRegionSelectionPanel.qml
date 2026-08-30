@@ -159,7 +159,6 @@ PanelWindow {
                 if (selectionWidth === 0 || selectionHeight === 0) {
                     return;
                 }
-                const screenshotDir = Config.options.screenSnip.savePath !== "" ? Config.options.screenSnip.savePath : "";
                 const screenshotAction = root.getScreenshotAction();
                 const command = ScreenshotAction.getCommand(dragArea.selectionX * root.monitorScale //
                 , dragArea.selectionY * root.monitorScale //
@@ -167,7 +166,7 @@ PanelWindow {
                 , dragArea.selectionHeight * root.monitorScale //
                 , root.screenshotPath //
                 , screenshotAction //
-                , screenshotDir); // yo wtf is this formatting qmlls do be funnie
+                , root.monitorScale); // yo wtf is this formatting qmlls do be funnie
                 snipProc.command = command;
 
                 // Image post-processing

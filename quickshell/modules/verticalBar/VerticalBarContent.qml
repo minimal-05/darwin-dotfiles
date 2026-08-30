@@ -54,8 +54,9 @@ Item { // Bar content region
         height: (root.height - middleSection.height) / 2
         width: Appearance.sizes.verticalBarWidth
 
-        onScrollDown: Brightness.decreaseBrightness()
-        onScrollUp: Brightness.increaseBrightness()
+        scrollStep: 480 // ponytail: 4 mouse notches per step; raise for slower
+        onScrollDown: Brightness.increaseBrightness()
+        onScrollUp: Brightness.decreaseBrightness()
         onMovedAway: GlobalStates.osdBrightnessOpen = false
         onPressed: event => {
             if (event.button === Qt.LeftButton)
@@ -164,8 +165,9 @@ Item { // Bar content region
         implicitWidth: Appearance.sizes.baseVerticalBarWidth
         implicitHeight: bottomSectionColumnLayout.implicitHeight
         
-        onScrollDown: Audio.decrementVolume();
-        onScrollUp: Audio.incrementVolume();
+        scrollStep: 480 // ponytail: 4 mouse notches per step; raise for slower
+        onScrollDown: Audio.incrementVolume();
+        onScrollUp: Audio.decrementVolume();
         onMovedAway: GlobalStates.osdVolumeOpen = false;
         onPressed: event => {
             if (event.button === Qt.LeftButton) {

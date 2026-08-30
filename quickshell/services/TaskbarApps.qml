@@ -8,13 +8,18 @@ import Quickshell.Wayland
 Singleton {
     id: root
 
+    // Compared case-insensitively because the two sides disagree: `apps` keys
+    // every entry by a lower-cased id so a pinned app and its open windows
+    // merge into one button, while pinnedApps holds the name as macOS spells it
+    // -- "Firefox" pinned, "firefox" asked about. An exact match reported every
+    // pinned app as unpinned, and pinning one appended a second entry.
     function isPinned(appId) {
-        return Config.options.dock.pinnedApps.indexOf(appId) !== -1;
+        return Config.options.dock.pinnedApps.some(id => id.toLowerCase() === appId.toLowerCase());
     }
 
     function togglePin(appId) {
         if (root.isPinned(appId)) {
-            Config.options.dock.pinnedApps = Config.options.dock.pinnedApps.filter(id => id !== appId)
+            Config.options.dock.pinnedApps = Config.options.dock.pinnedApps.filter(id => id.toLowerCase() !== appId.toLowerCase())
         } else {
             Config.options.dock.pinnedApps = Config.options.dock.pinnedApps.concat([appId])
         }

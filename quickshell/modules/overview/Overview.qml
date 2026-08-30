@@ -24,6 +24,19 @@ Scope {
         overviewScope.searchMode = search;
     }
 
+    // No batch capture on open. Every tile's ScreencopyView already grabs its
+    // own window the moment it becomes visible, so running qs-window-thumbs
+    // over the whole window list captured all of them a second time -- and
+    // serially, one screencapture after another, while the tiles were doing
+    // theirs in parallel. Measured at 1.5s for seven windows, which is exactly
+    // how long the grid took to stop rearranging itself: the icons sit large
+    // and centred until a frame lands, then shrink to corner badges.
+    //
+    // ponytail: that batch was also the only thing pruning thumbnails of
+    // windows that no longer exist. They are small and live in XDG_RUNTIME_DIR,
+    // so they go at reboot; give the script a --prune mode and call it on close
+    // if that ever actually costs anything.
+
     function toggleMode(search) {
         // Already open in the other mode: switch instead of closing.
         if (GlobalStates.overviewOpen && overviewScope.searchMode !== search) {
@@ -76,6 +89,14 @@ Scope {
                         searchWidget.cancelSearch();
                     }
                     GlobalFocusGrab.addDismissable(panelWindow);
+
+                    // Ask yabai now rather than opening on the last poll. The
+                    // shim polls windows once a second, so the grid was drawing
+                    // tiles at whatever geometry was current up to a second ago
+                    // and then animating them to the real sizes when the poll
+                    // landed -- the whole grid visibly resizing itself after it
+                    // was already up. One query is ~15ms.
+                    HyprlandData.updateWindowList();
                 }
             }
         }

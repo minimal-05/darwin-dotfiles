@@ -9,7 +9,18 @@ import qs.modules.common.widgets
 import qs.modules.common.functions
 
 ContentPage {
+    id: root
     forceWidth: true
+
+    property bool wallFilterExpanded: false
+
+    function randomWallpaper(category, baseQuery) {
+        // Collapsed means no filter, so a hidden field can't silently skew results.
+        const filter = root.wallFilterExpanded ? wallFilterField.text.trim() : "";
+        randomWallProc.query = [baseQuery, filter].filter(part => part.length > 0).join(" ");
+        randomWallProc.category = category;
+        randomWallProc.running = true;
+    }
 
     Process {
         id: randomWallProc
@@ -35,23 +46,19 @@ ContentPage {
         onClicked: {
             Quickshell.execDetached(["bash", "-c", `${Directories.wallpaperSwitchScriptPath} --mode ${dark ? "dark" : "light"} --noswitch`]);
         }
-        contentItem: Item {
-            anchors.centerIn: parent
-            ColumnLayout {
-                anchors.centerIn: parent
-                spacing: 0
-                MaterialSymbol {
-                    Layout.alignment: Qt.AlignHCenter
-                    iconSize: 30
-                    text: dark ? "dark_mode" : "light_mode"
-                    color: smallLightDarkPreferenceButton.colText
-                }
-                StyledText {
-                    Layout.alignment: Qt.AlignHCenter
-                    text: dark ? Translation.tr("Dark") : Translation.tr("Light")
-                    font.pixelSize: Appearance.font.pixelSize.smaller
-                    color: smallLightDarkPreferenceButton.colText
-                }
+        contentItem: ColumnLayout {
+            spacing: 0
+            MaterialSymbol {
+                Layout.alignment: Qt.AlignHCenter
+                iconSize: 30
+                text: dark ? "dark_mode" : "light_mode"
+                color: smallLightDarkPreferenceButton.colText
+            }
+            StyledText {
+                Layout.alignment: Qt.AlignHCenter
+                text: dark ? Translation.tr("Dark") : Translation.tr("Light")
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: smallLightDarkPreferenceButton.colText
             }
         }
     }
@@ -87,34 +94,64 @@ ContentPage {
             }
 
             ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 6
+
                 RippleButtonWithIcon {
                     enabled: !randomWallProc.running
                     Layout.fillWidth: true
                     buttonRadius: Appearance.rounding.small
                     materialIcon: "ifl"
                     mainText: randomWallProc.running ? Translation.tr("Be patient...") : Translation.tr("Random: Minimal")
-                    onClicked: {
-                        randomWallProc.query = "minimalism";
-                        randomWallProc.category = "100";
-                        randomWallProc.running = true;
-                    }
+                    onClicked: randomWallpaper("100", "minimalism")
                     StyledToolTip {
                         text: Translation.tr("Random minimalist wallpaper from wallhaven\nImage is saved to ~/Pictures/Wallpapers")
                     }
                 }
-                RippleButtonWithIcon {
-                    enabled: !randomWallProc.running
+                RowLayout {
                     Layout.fillWidth: true
-                    buttonRadius: Appearance.rounding.small
-                    materialIcon: "ifl"
-                    mainText: randomWallProc.running ? Translation.tr("Be patient...") : Translation.tr("Random: Anime")
-                    onClicked: {
-                        randomWallProc.query = "";
-                        randomWallProc.category = "010";
-                        randomWallProc.running = true;
+                    spacing: 6
+
+                    RippleButtonWithIcon {
+                        enabled: !randomWallProc.running
+                        Layout.fillWidth: true
+                        buttonRadius: Appearance.rounding.small
+                        materialIcon: "ifl"
+                        mainText: randomWallProc.running ? Translation.tr("Be patient...") : Translation.tr("Random: Anime")
+                        onClicked: randomWallpaper("010", "")
+                        StyledToolTip {
+                            text: Translation.tr("Random SFW anime wallpaper from wallhaven\nImage is saved to ~/Pictures/Wallpapers")
+                        }
                     }
+                    RippleButton {
+                        id: wallFilterToggle
+                        implicitWidth: 35
+                        implicitHeight: 35
+                        buttonRadius: Appearance.rounding.small
+                        colBackground: Appearance.colors.colLayer2
+                        toggled: root.wallFilterExpanded
+                        onClicked: root.wallFilterExpanded = !root.wallFilterExpanded
+                        contentItem: MaterialSymbol {
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            text: "search"
+                            iconSize: 20
+                            color: wallFilterToggle.toggled ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer2
+                        }
+                        StyledToolTip {
+                            text: Translation.tr("Filter what the random buttons search for")
+                        }
+                    }
+                }
+                MaterialTextField {
+                    id: wallFilterField
+                    visible: root.wallFilterExpanded
+                    Layout.fillWidth: true
+                    placeholderText: Translation.tr("Filter, e.g. scenery, ghibli, cyberpunk")
+                    onAccepted: randomWallpaper("010", "")
+                    onVisibleChanged: if (visible) forceActiveFocus()
                     StyledToolTip {
-                        text: Translation.tr("Random SFW anime wallpaper from wallhaven\nImage is saved to ~/Pictures/Wallpapers")
+                        text: Translation.tr("Narrows both buttons above. Leave empty for the whole pool.\nEnter searches anime.")
                     }
                 }
                 RippleButtonWithIcon {
@@ -156,15 +193,13 @@ ContentPage {
                 RowLayout {
                     Layout.alignment: Qt.AlignHCenter
                     Layout.fillWidth: true
-                    Layout.fillHeight: true
+                    spacing: 6
                     uniformCellSizes: true
 
                     SmallLightDarkPreferenceButton {
-                        Layout.fillHeight: true
                         dark: false
                     }
                     SmallLightDarkPreferenceButton {
-                        Layout.fillHeight: true
                         dark: true
                     }
                 }

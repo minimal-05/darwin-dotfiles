@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 import qs
 import qs.modules.common
+import qs.modules.common.utils
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -30,6 +31,12 @@ Scope {
                 selectionMode: root.selectionMode
             }
         }
+    }
+
+    // cmd+shift+3's job: the whole display, no selector, straight onto the
+    // pasteboard and into the corner shelf, which decides where it is saved.
+    function fullscreen() {
+        Quickshell.execDetached(ScreenshotAction.getFullscreenCommand());
     }
 
     function screenshot() {
@@ -73,6 +80,9 @@ Scope {
     IpcHandler {
         target: "region"
 
+        function fullscreen() {
+            root.fullscreen()
+        }
         function screenshot() {
             root.screenshot()
         }
@@ -90,6 +100,11 @@ Scope {
         }
     }
 
+    GlobalShortcut {
+        name: "fullscreenScreenshot"
+        description: "Takes a screenshot of the whole screen"
+        onPressed: root.fullscreen()
+    }
     GlobalShortcut {
         name: "regionScreenshot"
         description: "Takes a screenshot of the selected region"

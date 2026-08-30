@@ -72,6 +72,44 @@ Item { // Window
         root.height = Qt.binding(() => root.targetWindowHeight);
     }
 
+    // What yabai last reported for this window. Re-binding the tile the instant
+    // the pointer is let go puts it back on the *old* geometry, because the new
+    // one has not been polled yet — so the tile visibly snapped back and only
+    // jumped forward a poll later. Instead it keeps where it was dropped until
+    // this key actually changes, and only then re-binds.
+    readonly property string frameKey: {
+        const w = root.windowData;
+        if (!w) return "";
+        return `${w.workspace?.id}:${w.at?.[0]},${w.at?.[1]}:${w.size?.[0]}x${w.size?.[1]}`;
+    }
+
+    property string pendingFrame: ""
+
+    function holdGeometry(): void {
+        root.pendingFrame = root.frameKey;
+        settleTimeout.restart();
+    }
+
+    onFrameKeyChanged: {
+        if (root.pendingFrame === "" || root.frameKey === "") return;
+        if (root.frameKey === root.pendingFrame) return; // not applied yet
+        root.pendingFrame = "";
+        settleTimeout.stop();
+        root.resetGeometry();
+    }
+
+    Timer {
+        id: settleTimeout
+        // yabai defers tiling changes on a space that is not showing, so the
+        // edit may never reach the data. Give up rather than leaving the tile
+        // parked where the pointer left it.
+        interval: 1500
+        onTriggered: {
+            root.pendingFrame = "";
+            root.resetGeometry();
+        }
+    }
+
     x: initX
     y: initY
     width: targetWindowWidth
