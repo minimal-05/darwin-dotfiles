@@ -18,7 +18,7 @@ Idempotent — re-run after pulling. `--no-deps` skips Homebrew.
 ## Layout
 
 ```
-quickshell/     the bar I actually run — pills, services, workspace dots
+quickshell/     shell configs, one dir each — `qs -c end4`, `qs -c mine`
 yabai/ skhd/    tiling WM and hotkeys
 karabiner/      media-key grabs, routed to quickshell over IPC
 borders/        active-window border

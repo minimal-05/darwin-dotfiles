@@ -8,7 +8,7 @@ XDG_STATE_HOME="${XDG_STATE_HOME:-$HOME/Library/Preferences}"
 # The config directory is ~/.config/quickshell itself. Upstream nests it one
 # level deeper under the panel-family name, which on macOS pointed at a
 # directory that never existed -- `cd "$CONFIG_DIR"` then exited silently.
-CONFIG_DIR="$HOME/.config/quickshell"
+CONFIG_DIR="$HOME/.config/quickshell/end4"
 CACHE_DIR="$XDG_CACHE_HOME/quickshell"
 STATE_DIR="$XDG_STATE_HOME/quickshell"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
