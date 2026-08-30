@@ -90,12 +90,20 @@ cat > "$BAR" <<PLIST
          qs-start execs quickshell, so this job's lifetime is the real process
          rather than a launcher that returns immediately.
 
-         No KeepAlive on purpose: the shell is killed deliberately often enough
-         (qs-dev restarts it in place) that launchd would fight it.
-         ponytail: if the bar starts dying on you (quickshell exits when the
-         config tree it is rooted in changes, and ~/.config is a git repo),
-         add KeepAlive here and bootout before restarting. -->
+         KeepAlive because the shell exits on its own: quickshell quits when the
+         config tree it is rooted in changes, and ~/.config is a git repo, so an
+         ordinary commit or checkout takes the bar down with exit code 0 and it
+         stays down. That is exactly what the old note here predicted. It used to
+         be omitted so `qs-switch sketchybar` could kill the bar without launchd
+         fighting it; qs-switch is gone and there is no second bar, so nothing
+         wants it dead any more.
+
+         qs-dev restarts the shell in place and is the one thing that does kill
+         it deliberately -- it pkills and relaunches, so launchd bringing the old
+         one back is not a race it can lose. -->
     <key>RunAtLoad</key><true/>
+    <key>KeepAlive</key><true/>
+    <key>ThrottleInterval</key><integer>5</integer>
     <key>ProcessType</key><string>Interactive</string>
     <key>StandardOutPath</key><string>/tmp/quickshell-bar.log</string>
     <key>StandardErrorPath</key><string>/tmp/quickshell-bar.log</string>
