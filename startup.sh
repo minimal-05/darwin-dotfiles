@@ -5,7 +5,7 @@
 # the agents" -- after the first run, logging in does it.
 #
 #   yabai      com.koekeishiya.yabai      (yabai --start-service)
-#   skhd       com.jackielii.skhd         (skhd --start-service)
+#   skhd       local.skhd                 (written below)
 #   borders    homebrew.mxcl.borders      (brew services)
 #   Files.app  org.quickshell.files       (written by qs-make-app)
 #   Settings.app                          (written by qs-make-app, no agent)
@@ -15,8 +15,6 @@
 # needs root, and a login agent has no terminal to ask for a password on.
 #
 # Karabiner installs its own org.pqrs.* agents when you install the app.
-# SketchyBar is deliberately absent: it is the *other* bar, and only one of the
-# two may run at a time -- see qs-switch.
 set -eu
 
 QS="$HOME/Projects/quickshell-macos"
@@ -56,15 +54,39 @@ fi
 say "yabai"
 ok yabai --start-service
 say "skhd"
-# skhd --install-service bakes the *versioned* Cellar path into its plist, so a
-# `brew upgrade skhd-zig` silently leaves an agent pointing at a binary that is
-# gone. Rewrite it when it no longer matches the skhd on PATH.
-SKHD_PLIST="$AGENTS/com.jackielii.skhd.plist"
-grep -qF "$(readlink -f "$(command -v skhd)")" "$SKHD_PLIST" 2>/dev/null || {
-    ok skhd --uninstall-service
-    ok skhd --install-service
-}
-ok skhd --start-service
+# skhd-zig is a cask now: /Applications/skhd.app, registering its agent through
+# SMAppService. That registration does not work here -- `launchctl print` reports
+# runs = 0 and job state = uninitialized however many times it is reinstalled or
+# approved, so launchd never starts it and every binding is dead.
+#
+# A plain LaunchAgent onto the same binary does run. Distinct label so it cannot
+# collide with the cask's com.jackielii.skhd: if that one ever starts working,
+# bootout this one, or the two double-fire every binding.
+SKHD_BIN="/Applications/skhd.app/Contents/MacOS/skhd"
+SKHD_PLIST="$AGENTS/local.skhd.plist"
+if [ -x "$SKHD_BIN" ]; then
+    cat > "$SKHD_PLIST" <<SKHDPLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key><string>local.skhd</string>
+    <key>ProgramArguments</key>
+    <array><string>$SKHD_BIN</string></array>
+    <key>RunAtLoad</key><true/>
+    <key>KeepAlive</key><true/>
+    <key>ThrottleInterval</key><integer>5</integer>
+    <key>ProcessType</key><string>Interactive</string>
+    <key>StandardOutPath</key><string>/tmp/skhd.log</string>
+    <key>StandardErrorPath</key><string>/tmp/skhd.log</string>
+</dict>
+</plist>
+SKHDPLIST
+    ok launchctl bootout "$GUI/local.skhd"
+    ok launchctl bootstrap "$GUI" "$SKHD_PLIST"
+else
+    echo "  skhd not installed at $SKHD_BIN -- run install.sh"
+fi
 say "borders"; ok brew services start borders
 
 # The Spotlight- and dock-launchable wrappers around finder.qml and settings.qml,
@@ -97,10 +119,14 @@ cat > "$BAR" <<PLIST
          KeepAlive because the shell exits on its own: quickshell quits when the
          config tree it is rooted in changes, and ~/.config is a git repo, so an
          ordinary commit or checkout takes the bar down with exit code 0 and it
-         stays down. That is exactly what the old note here predicted. It used to
-         be omitted so `qs-switch sketchybar` could kill the bar without launchd
-         fighting it; qs-switch is gone and there is no second bar, so nothing
-         wants it dead any more.
+         stays down. That is exactly what the old note here predicted. It used
+         to be omitted so qs-switch could hand the strip to SketchyBar without
+         launchd fighting it; both are gone, so nothing wants the bar dead now.
+
+         NOTE: this machine does not currently honour KeepAlive at all -- not
+         even for homebrew's borders agent -- so it is correct config that does
+         nothing yet. Leave it: it costs nothing and works the moment launchd
+         does.
 
          qs-dev restarts the shell in place and is the one thing that does kill
          it deliberately -- it pkills and relaunches, so launchd bringing the old
@@ -129,6 +155,22 @@ if launchctl print "$GUI/org.quickshell.bar" >/dev/null 2>&1; then
 fi
 launchctl bootstrap "$GUI" "$BAR"
 
+# bootstrap alone is not enough here: launchd registers the job but does not
+# honour RunAtLoad, so everything sits at runs = 0 until it is kicked. The same
+# machine also ignores KeepAlive -- killing an agent does not bring it back,
+# which is true even of homebrew's own borders agent, so it is not something
+# these plists are doing wrong. Kick each one and check it took.
+say "Starting"
+for label in local.skhd org.quickshell.files org.quickshell.bar; do
+    launchctl print "$GUI/$label" >/dev/null 2>&1 || continue
+    ok launchctl kickstart "$GUI/$label"
+done
+sleep 3
+
 echo
 say "Loaded"
-launchctl list | grep -E 'yabai|skhd|quickshell|borders|sketchybar' || true
+for label in com.asmvik.yabai com.koekeishiya.yabai homebrew.mxcl.borders \
+             local.skhd org.quickshell.bar org.quickshell.files; do
+    state="$(launchctl print "$GUI/$label" 2>/dev/null | sed -n 's/^\tstate = //p')"
+    [ -n "$state" ] && printf '  %-26s %s\n' "$label" "$state"
+done
