@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
-"""Apply the generated Material palette to kitty, Firefox and VSCodium.
+"""Apply the generated Material palette to kitty, Firefox, VSCodium and borders.
 
-    apply-apps.py                  themes all three from the current colors.json
+    apply-apps.py                  themes them all from the current colors.json
     apply-apps.py --only kitty     just one of them
     apply-apps.py --colors PATH    read a different palette
 
 Each app has a switch in Settings -> Advanced -> Color generation, with
 "Shell & utilities" as the master; an app whose switch is off is left alone.
+borders has no switch of its own and rides the master -- window borders are
+the shell's own frame, not a third-party app you would theme separately.
 
 switchwall.sh calls this after qs-matugen writes colors.json, so a wallpaper
-or mode change repaints the terminal, the browser and the editor along with
-the bar.
+or mode change repaints the terminal, the browser, the editor and the frame
+around every window along with the bar.
 
 Upstream does this in applycolor.sh, which cannot work here: it sed-s a
 template with GNU `sed -i`, signals `pidof kitty`, writes escape sequences
@@ -22,6 +24,7 @@ equivalent, driven straight off colors.json.
 import argparse
 import json
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -44,9 +47,20 @@ THEMING_SWITCH = {
     "kitty": "enableTerminal",
     "firefox": "enableFirefox",
     "vscodium": "enableVscodium",
+    # No key of its own in config.json, so .get() below defaults it on and
+    # only the master switch turns it off.
+    "borders": "enableBorders",
 }
 
 VSCODIUM = Path.home() / "Library/Application Support/VSCodium/User/settings.json"
+
+# JankyBorders reads this at startup and nothing else does; the running
+# instance is updated by re-invoking the binary. Absolute Homebrew paths as a
+# fallback because switchwall.sh can be run from the shell's own environment,
+# which does not necessarily carry /opt/homebrew on PATH.
+BORDERSRC = Path.home() / ".config/borders/bordersrc"
+BORDERS = shutil.which("borders") or "/opt/homebrew/bin/borders"
+YABAI = shutil.which("yabai") or "/opt/homebrew/bin/yabai"
 
 FIREFOX = Path.home() / "Library/Application Support/Firefox"
 # Written beside userChrome.css rather than into it: that file is hand-edited,
@@ -543,6 +557,63 @@ def vscodium_colours(c: dict, dark: bool) -> dict:
     return colours
 
 
+def apply_borders(colours: dict) -> str:
+    """Repaint the window borders macOS draws outside the shell.
+
+    Two tools, one pair of colours. JankyBorders draws the ring around every
+    window; yabai fills the split preview with insert_feedback_color. Both sat
+    on values the palette never touched -- borders on its stock white, because
+    it ran with no config file at all, and yabai on a green literal in yabairc
+    -- so a wallpaper change repainted the bar, the terminal, the browser and
+    the editor and left the frame around all four unchanged.
+
+    They take primary/outline, the same pair apply_kitty gives
+    active/inactive_border_color, so a focused window and a focused kitty tab
+    are outlined in one colour rather than two that nearly match.
+
+    Written *and* pushed live, because the two paths cover different moments:
+    bordersrc is only read when borders starts with no arguments, and the
+    running instance only changes when the binary is re-invoked (borders(1):
+    "subsequent invocations will update the existing process"). Write alone and
+    the colour lands at next login; push alone and it is lost at next login.
+    """
+    active = f"0x{argb(colours['primary']):08x}"
+    inactive = f"0x{argb(colours['outline']):08x}"
+
+    BORDERSRC.parent.mkdir(parents=True, exist_ok=True)
+    BORDERSRC.write_text(
+        f"#!/bin/sh\n# {BANNER}\n\n"
+        f"borders active_color={active} inactive_color={inactive}\n"
+    )
+    BORDERSRC.chmod(0o755)
+
+    done = []
+    # Guarded by pgrep rather than just run: with no instance running, `borders
+    # <args>` does not update anything, it *becomes* the instance and never
+    # returns -- which would hang switchwall.sh for the rest of the session.
+    # The timeout is the belt to that braces, for the race where borders dies
+    # between the check and the call.
+    if subprocess.run(["pgrep", "-x", "borders"], capture_output=True).returncode == 0:
+        try:
+            subprocess.run([BORDERS, f"active_color={active}", f"inactive_color={inactive}"],
+                           capture_output=True, timeout=5)
+            done.append("borders")
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+
+    # yabai exits non-zero and immediately when it is not running, so this one
+    # needs no guard.
+    try:
+        if subprocess.run([YABAI, "-m", "config", "insert_feedback_color", active],
+                          capture_output=True, timeout=5).returncode == 0:
+            done.append("yabai")
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+
+    live = f"repainted {' and '.join(done)}" if done else "nothing running to repaint"
+    return f"borders: wrote {BORDERSRC}, {live}"
+
+
 def self_check() -> int:
     """apply-apps.py --self-check -- the contrast lift, which is the only
     part here with arithmetic to get wrong."""
@@ -586,6 +657,12 @@ def self_check() -> int:
         if other in start:
             assert other in live_text and other in dead_text, start
 
+    # borders and yabai both want 0xAARRGGBB, opaque -- a stray "#" or a
+    # dropped alpha byte is silently ignored by both tools, which looks exactly
+    # like the bug this fixes.
+    assert f"0x{argb('#f8b8a0'):08x}" == "0xfff8b8a0"
+    assert f"0x{argb('84716b'):08x}" == "0xff84716b"
+
     print("self-check ok")
     return 0
 
@@ -593,7 +670,7 @@ def self_check() -> int:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--colors", default=str(COLORS))
-    ap.add_argument("--only", choices=["kitty", "firefox", "vscodium"])
+    ap.add_argument("--only", choices=["kitty", "firefox", "vscodium", "borders"])
     ap.add_argument("--self-check", action="store_true", help=argparse.SUPPRESS)
     args = ap.parse_args()
 
@@ -613,6 +690,8 @@ def main() -> int:
         ("firefox", lambda on: apply_firefox(colours, dark, on)),
         ("vscodium", lambda on: apply_vscodium(colours, dark) if on
          else "vscodium: disabled in settings, skipped"),
+        ("borders", lambda on: apply_borders(colours) if on
+         else "borders: disabled in settings, skipped"),
     )
     for name, fn in apps:
         if args.only in (None, name):

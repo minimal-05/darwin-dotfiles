@@ -23,7 +23,6 @@ yabai -m config mouse_follows_focus off \
   window_opacity_duration 0.2 \
   active_window_opacity 1.0 \
   normal_window_opacity 0.8 \
-  insert_feedback_color 0xff9dd274 \
   split_ratio 0.50 \
   mouse_modifier fn \
   mouse_action1 move \
@@ -48,3 +47,10 @@ yabai -m rule --add label=quickshell app="^quickshell$" manage=off
 
 yabai -m config layout bsp
 yabai -m rule --apply
+
+# Window border colours -- JankyBorders' ring and this config's own
+# insert_feedback_color, which used to be a green literal in the block above --
+# come from the wallpaper palette. switchwall.sh runs this same script after a
+# colour change; a yabai restart is the other moment they need re-applying, and
+# yabai is the only thing that knows one happened.
+"$HOME/.config/quickshell/end4/scripts/colors/apply-apps.py" --only borders || true
