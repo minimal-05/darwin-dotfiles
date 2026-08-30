@@ -369,14 +369,16 @@ Singleton {
                 // exactly the case that used to draw a broken picture.
                 property list<string> pinnedApps: [ // IDs of pinned entries
                     "Files", "Settings", "kitty",]
-                // ponytail: Files and Settings are standalone quickshell
-                // processes, so yabai reports their windows as "quickshell" --
-                // one appId for two apps plus the shell itself. Their pins
-                // above carry the icons; the raw windows would only add a
-                // third button that is neither. Splitting them needs the
-                // toplevel shim to name a window by the config its process
-                // runs, not by its bundle.
-                property list<string> ignoredAppRegexes: ["^quickshell$"]
+                // ponytail: Files and Settings are standalone processes, but
+                // qs-make-app ships them with the shared binary renamed to
+                // "quickshell-engine" inside their own bundle, so yabai
+                // reports their windows under that name -- one appId for
+                // both mini-apps plus any invisible root surface the main
+                // shell itself leaves behind. TaskbarApps regroups a titled
+                // one by its window title (e.g. "Files"); an untitled one
+                // (the invisible root, not a real window) has nothing to
+                // regroup by and belongs here instead.
+                property list<string> ignoredAppRegexes: ["^quickshell$", "^quickshell-engine$"]
             }
 
             property JsonObject interactions: JsonObject {
