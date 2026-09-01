@@ -149,7 +149,9 @@ Item {
     ToggleDialog {
         shownPropertyString: "showScreenMirroringDialog"
         dialog: ScreenMirroringDialog {}
-        onShownChanged: shown ? AirPlay.start() : AirPlay.stop()
+        // Discovery runs continuously now (see AirPlay.qml); opening the
+        // dialog just re-shows the spinner while the list is already fresh.
+        onShownChanged: shown && AirPlay.start()
     }
 
     ToggleDialog {

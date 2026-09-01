@@ -31,6 +31,7 @@ ShellRoot {
         Wallpapers.load()
         Updates.load()
         YabaiBarSpace.load()
+        AirPlay.load()
     }
 
 

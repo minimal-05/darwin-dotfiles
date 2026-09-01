@@ -35,5 +35,11 @@ AbstractQuickPanel {
         IdleInhibitor {}
         EasyEffectsToggle {}
         CloudflareWarp {}
+        ScreenMirroring {
+            onClicked: root.openScreenMirroringDialog()
+            altAction: () => {
+                root.openScreenMirroringDialog();
+            }
+        }
     }
 }
