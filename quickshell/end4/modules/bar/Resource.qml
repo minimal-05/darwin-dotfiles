@@ -17,7 +17,7 @@ Item {
 
     RowLayout {
         id: resourceRowLayout
-        spacing: 2
+        spacing: 4
         x: shown ? 0 : -resourceRowLayout.width
         anchors {
             verticalCenter: parent.verticalCenter
