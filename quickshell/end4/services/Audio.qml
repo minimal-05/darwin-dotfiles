@@ -188,6 +188,26 @@ Singleton {
         }
     }
 
+    // AirPlay output-switch notification. The default sink already reports
+    // its transport (device.bus, from CoreAudioDevice::transport), so this
+    // only has to react to `sink` changing -- no polling.
+    property string __lastSinkTransport: ""
+    property bool __sinkTracked: false
+
+    function __checkAirplaySink() {
+        const transport = root.sink?.properties?.["device.bus"] ?? "";
+        if (root.__sinkTracked && transport !== root.__lastSinkTransport) {
+            if (transport === "airplay")
+                Quickshell.execDetached(["notify-send", "AirPlay", `Now playing on ${root.sink.description}`, "-a", "AirPlay"]);
+            else if (root.__lastSinkTransport === "airplay")
+                Quickshell.execDetached(["notify-send", "AirPlay", "Switched off AirPlay", "-a", "AirPlay"]);
+        }
+        root.__lastSinkTransport = transport;
+        root.__sinkTracked = true;
+    }
+
+    onSinkChanged: root.__checkAirplaySink()
+
     // macOS ships no freedesktop sound theme under /usr/share/sounds and no
     // ffplay. The stock alert sounds are /System/Library/Sounds/*.aiff and
     // afplay is part of the base install, so the names end-4 uses are mapped
