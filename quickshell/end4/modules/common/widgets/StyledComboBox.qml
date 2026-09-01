@@ -20,11 +20,20 @@ ComboBox {
     Layout.fillWidth: true
 
     background: Rectangle {
-        radius: root.buttonRadius
+        topLeftRadius: root.buttonRadius
+        topRightRadius: root.buttonRadius
+        bottomLeftRadius: root.popup.visible ? Appearance.rounding.unsharpen : root.buttonRadius
+        bottomRightRadius: root.popup.visible ? Appearance.rounding.unsharpen : root.buttonRadius
         color: (root.down && !root.popup.visible) ? root.colBackgroundActive : root.hovered ? root.colBackgroundHover : root.colBackground
 
         Behavior on color {
             animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
+        }
+        Behavior on bottomLeftRadius {
+            animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+        }
+        Behavior on bottomRightRadius {
+            animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
         }
 
         MouseArea {
@@ -158,7 +167,7 @@ ComboBox {
     }
 
     popup: Popup {
-        y: root.height + 4
+        y: root.height + 2
         width: root.width
         height: Math.min(listView.contentHeight + topPadding + bottomPadding, 300)
         padding: 8
@@ -191,7 +200,10 @@ ComboBox {
             Rectangle {
                 id: popupBackground
                 anchors.fill: parent
-                radius: Appearance.rounding.normal
+                topLeftRadius: Appearance.rounding.unsharpen
+                topRightRadius: Appearance.rounding.unsharpen
+                bottomLeftRadius: Appearance.rounding.normal
+                bottomRightRadius: Appearance.rounding.normal
                 color: Appearance.m3colors.m3surfaceContainerHigh
             }
         }
