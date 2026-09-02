@@ -143,11 +143,14 @@ ColumnLayout {
         implicitHeight: root.popupOpen ? Math.min(listView.contentHeight + 16, 300) : 0
         opacity: root.popupOpen ? 1 : 0
 
+        // elementMoveFast (200ms, used everywhere else in this file) still read
+        // as sluggish for an expand/collapse the user checks repeatedly -- cut
+        // to a flat 80ms rather than reusing a shared token.
         Behavior on implicitHeight {
-            animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+            NumberAnimation { duration: 80; easing.type: Easing.OutQuad }
         }
         Behavior on opacity {
-            animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+            NumberAnimation { duration: 80; easing.type: Easing.OutQuad }
         }
 
         StyledListView {
