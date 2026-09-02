@@ -1,45 +1,41 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
-import Quickshell
-import Quickshell.Wayland
 import qs
 import qs.modules.common
 import qs.modules.common.widgets
 import qs.modules.common.functions
 
 /**
-* A Material 3 dropdown. Built on RippleButton + PanelWindow (the same
-* primitives DockMenu/SysTrayMenu use for their own floating menus) rather
-* than QtQuick.Controls' ComboBox/Popup: that Popup opens its own plain Qt
-* window, which isn't part of the app's own overlay/level handling and so
-* isn't covered by the region-selector guard below the way every other
-* end4 popup is.
+* A Material 3 dropdown. The option list expands inline, directly beneath
+* the trigger, growing the surrounding layout -- the same "push the rest of
+* the content down" pattern macOS's own Control Center audio-device picker
+* uses -- instead of floating a separate window over everything.
+*
+* A floating popup, even a proper Quickshell PanelWindow built the way
+* DockMenu/SysTrayMenu build theirs, is still a second window whose stacking
+* relative to a screen-region selection isn't this app's to control, and it
+* showed up over one anyway. Inline content can't: it's just part of this
+* window, exactly as visible to a screenshot as any other row already on
+* the page, so nothing extra has to know a screenshot is being taken.
 *
 * ponytail: mouse-only, like DockMenu and SysTrayMenu -- no arrow-key/typeahead
 * navigation. Add it if a dropdown with many options actually needs it.
 */
-RippleButton {
+ColumnLayout {
     id: root
 
     property var model: []
     property string textRole: ""
     property string buttonIcon: ""
     property int currentIndex: -1
-    property color colBackgroundActive: Appearance.colors.colSecondaryContainerActive
     property bool popupOpen: false
 
     signal activated(int index)
 
-    // buttonRadius, colBackground and colBackgroundHover already exist on
-    // RippleButton -- rebind them rather than redeclaring (qmllint flags a
-    // redeclare as shadowing the base property).
-    buttonRadius: height / 2
-    colBackground: Appearance.colors.colSecondaryContainer
-    colBackgroundHover: Appearance.colors.colSecondaryContainerHover
-
     function textFor(item): string {
-        return (root.textRole.length > 0 && typeof item === 'object') ? (item?.[root.textRole] ?? "") : String(item ?? "");
+        return (root.textRole.length > 0 && typeof item === 'object') ? (item?.[root.textRole] ?? "") : String(
+                                                                            item ?? "");
     }
     function iconFor(item): string {
         return (typeof item === 'object' && item?.icon) ? item.icon : "";
@@ -49,13 +45,12 @@ RippleButton {
                                             ? root.model[root.currentIndex] : undefined
     readonly property string displayText: root.textFor(root.currentModelItem)
 
-    implicitHeight: 40
+    spacing: 0
     Layout.fillWidth: true
-    releaseAction: () => root.popupOpen = !root.popupOpen
 
     // A snip overlay covers the screen but cannot take the pointer, so a
-    // click meant for the region selection would otherwise fall through and
-    // open this: close it (and keep it closed) whenever one starts.
+    // click meant for the region selection could otherwise fall through and
+    // open this: refuse to, and collapse it if one starts while it's open.
     Connections {
         target: GlobalStates
         function onRegionSelectorOpenChanged() {
@@ -64,186 +59,155 @@ RippleButton {
         }
     }
 
-    background: Rectangle {
-        topLeftRadius: root.buttonRadius
-        topRightRadius: root.buttonRadius
-        bottomLeftRadius: root.popupOpen ? Appearance.rounding.unsharpen : root.buttonRadius
-        bottomRightRadius: root.popupOpen ? Appearance.rounding.unsharpen : root.buttonRadius
-        color: (root.down && !root.popupOpen) ? root.colBackgroundActive : root.hovered
-                                                ? root.colBackgroundHover : root.colBackground
-
-        Behavior on color {
-            animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
+    RippleButton {
+        id: trigger
+        Layout.fillWidth: true
+        implicitHeight: 40
+        rippleEnabled: false
+        releaseAction: () => {
+            if (!GlobalStates.regionSelectorOpen)
+                root.popupOpen = !root.popupOpen;
         }
-        Behavior on bottomLeftRadius {
-            animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
-        }
-        Behavior on bottomRightRadius {
-            animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
-        }
-    }
 
-    contentItem: RowLayout {
-        anchors.fill: parent
-        spacing: 8
-        anchors.leftMargin: 16
-        anchors.rightMargin: 16
+        background: Rectangle {
+            topLeftRadius: trigger.height / 2
+            topRightRadius: trigger.height / 2
+            bottomLeftRadius: root.popupOpen ? Appearance.rounding.unsharpen : trigger.height / 2
+            bottomRightRadius: root.popupOpen ? Appearance.rounding.unsharpen : trigger.height / 2
+            color: (trigger.down && !root.popupOpen) ? Appearance.colors.colSecondaryContainerActive : trigger.hovered
+                                                       ? Appearance.colors.colSecondaryContainerHover :
+                                                         Appearance.colors.colSecondaryContainer
 
-        Loader {
-            Layout.alignment: Qt.AlignVCenter
-            active: root.iconFor(root.currentModelItem).length > 0 || root.buttonIcon.length > 0
-            visible: active
-            sourceComponent: MaterialSymbol {
-                text: root.iconFor(root.currentModelItem) || root.buttonIcon
-                iconSize: Appearance.font.pixelSize.larger
-                color: Appearance.colors.colOnSecondaryContainer
+            Behavior on color {
+                animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
             }
-        }
-
-        StyledText {
-            Layout.fillWidth: true
-            Layout.alignment: Qt.AlignVCenter
-            color: Appearance.colors.colOnSecondaryContainer
-            text: root.displayText
-            elide: Text.ElideRight
-            verticalAlignment: Text.AlignVCenter
-        }
-
-        MaterialSymbol {
-            Layout.alignment: Qt.AlignVCenter
-            text: "keyboard_arrow_down"
-            iconSize: Appearance.font.pixelSize.larger
-            color: Appearance.colors.colOnSecondaryContainer
-
-            rotation: root.popupOpen ? 180 : 0
-            Behavior on rotation {
+            Behavior on bottomLeftRadius {
+                animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+            }
+            Behavior on bottomRightRadius {
                 animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
             }
         }
-    }
 
-    Loader {
-        active: root.popupOpen && !GlobalStates.regionSelectorOpen
+        contentItem: RowLayout {
+            anchors.fill: parent
+            spacing: 8
+            anchors.leftMargin: 16
+            anchors.rightMargin: 16
 
-        sourceComponent: PanelWindow {
-            id: popupWindow
-            color: "#03000000" // Drawn, not transparent: see DockMenu's note on scrim hit-testing.
-
-            // Recomputed only as it opens, like AppMenus.qml's dropdown: good
-            // enough for where the button was when it was clicked.
-            property point anchorPoint: root.mapToGlobal(0, root.height)
-
-            anchors {
-                top: true
-                bottom: true
-                left: true
-                right: true
-            }
-            exclusionMode: ExclusionMode.Ignore
-            exclusiveZone: 0
-            WlrLayershell.namespace: "quickshell:popup"
-            WlrLayershell.layer: WlrLayer.Overlay
-
-            MouseArea {
-                anchors.fill: parent
-                acceptedButtons: Qt.AllButtons
-                onPressed: root.popupOpen = false
+            Loader {
+                Layout.alignment: Qt.AlignVCenter
+                active: root.iconFor(root.currentModelItem).length > 0 || root.buttonIcon.length > 0
+                visible: active
+                sourceComponent: MaterialSymbol {
+                    text: root.iconFor(root.currentModelItem) || root.buttonIcon
+                    iconSize: Appearance.font.pixelSize.larger
+                    color: Appearance.colors.colOnSecondaryContainer
+                }
             }
 
-            StyledRectangularShadow {
-                target: card
+            StyledText {
+                Layout.fillWidth: true
+                Layout.alignment: Qt.AlignVCenter
+                color: Appearance.colors.colOnSecondaryContainer
+                text: root.displayText
+                elide: Text.ElideRight
+                verticalAlignment: Text.AlignVCenter
             }
 
-            Rectangle {
-                id: card
-                readonly property real gap: Appearance.sizes.elevationMargin
+            MaterialSymbol {
+                Layout.alignment: Qt.AlignVCenter
+                text: "keyboard_arrow_down"
+                iconSize: Appearance.font.pixelSize.larger
+                color: Appearance.colors.colOnSecondaryContainer
 
-                x: Math.max(gap, Math.min(popupWindow.anchorPoint.x, popupWindow.width - width - gap))
-                y: Math.min(popupWindow.anchorPoint.y + 2, popupWindow.height - height - gap)
-                width: root.width
-                height: Math.min(listView.contentHeight + 16, 300)
-
-                topLeftRadius: Appearance.rounding.unsharpen
-                topRightRadius: Appearance.rounding.unsharpen
-                bottomLeftRadius: Appearance.rounding.normal
-                bottomRightRadius: Appearance.rounding.normal
-                color: Appearance.m3colors.m3surfaceContainerHigh
-
-                opacity: 0
-                Component.onCompleted: opacity = 1
-                Behavior on opacity {
+                rotation: root.popupOpen ? 180 : 0
+                Behavior on rotation {
                     animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
                 }
+            }
+        }
+    }
 
-                // Swallow clicks that land on the card but not on a row, so
-                // they do not reach the scrim and close the dropdown.
-                MouseArea {
-                    anchors.fill: parent
-                    acceptedButtons: Qt.AllButtons
+    Rectangle {
+        id: listPanel
+        Layout.fillWidth: true
+        clip: true
+
+        topLeftRadius: Appearance.rounding.unsharpen
+        topRightRadius: Appearance.rounding.unsharpen
+        bottomLeftRadius: Appearance.rounding.normal
+        bottomRightRadius: Appearance.rounding.normal
+        color: Appearance.m3colors.m3surfaceContainerHigh
+
+        implicitHeight: root.popupOpen ? Math.min(listView.contentHeight + 16, 300) : 0
+        opacity: root.popupOpen ? 1 : 0
+
+        Behavior on implicitHeight {
+            animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+        }
+        Behavior on opacity {
+            animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+        }
+
+        StyledListView {
+            id: listView
+            anchors.fill: parent
+            anchors.margins: 8
+            clip: true
+            spacing: 2
+            animateAppearance: false
+
+            model: root.model
+            delegate: RippleButton {
+                id: rowButton
+                required property var modelData
+                required property int index
+
+                width: ListView.view ? ListView.view.width : root.width
+                implicitHeight: 40
+                buttonRadius: Appearance.rounding.small
+
+                readonly property bool isCurrent: root.currentIndex === rowButton.index
+                colBackground: rowButton.isCurrent ? Appearance.colors.colSecondaryContainer :
+                                                     ColorUtils.transparentize(Appearance.colors.colLayer3, 1)
+                colBackgroundHover: rowButton.isCurrent ? Appearance.colors.colSecondaryContainerHover :
+                                                          Appearance.colors.colLayer3Hover
+                colRipple: rowButton.isCurrent ? Appearance.colors.colSecondaryContainerActive :
+                                                 Appearance.colors.colLayer3Active
+
+                releaseAction: () => {
+                    root.currentIndex = rowButton.index;
+                    root.activated(rowButton.index);
+                    root.popupOpen = false;
                 }
 
-                StyledListView {
-                    id: listView
+                contentItem: RowLayout {
                     anchors.fill: parent
-                    anchors.margins: 8
-                    clip: true
-                    spacing: 2
-                    animateAppearance: false
+                    spacing: 8
+                    anchors.leftMargin: 12
+                    anchors.rightMargin: 12
 
-                    model: root.model
-                    delegate: RippleButton {
-                        id: rowButton
-                        required property var modelData
-                        required property int index
-
-                        width: ListView.view ? ListView.view.width : root.width
-                        implicitHeight: 40
-                        buttonRadius: Appearance.rounding.small
-
-                        readonly property bool isCurrent: root.currentIndex === rowButton.index
-                        colBackground: rowButton.isCurrent ? Appearance.colors.colSecondaryContainer :
-                                                             ColorUtils.transparentize(
-                                                                 Appearance.colors.colLayer3, 1)
-                        colBackgroundHover: rowButton.isCurrent
-                                            ? Appearance.colors.colSecondaryContainerHover :
-                                              Appearance.colors.colLayer3Hover
-                        colRipple: rowButton.isCurrent ? Appearance.colors.colSecondaryContainerActive :
-                                                         Appearance.colors.colLayer3Active
-
-                        releaseAction: () => {
-                            root.currentIndex = rowButton.index;
-                            root.activated(rowButton.index);
-                            root.popupOpen = false;
+                    Loader {
+                        Layout.alignment: Qt.AlignVCenter
+                        active: root.iconFor(rowButton.modelData).length > 0
+                        visible: active
+                        sourceComponent: MaterialSymbol {
+                            text: root.iconFor(rowButton.modelData)
+                            iconSize: Appearance.font.pixelSize.larger
+                            color: rowButton.isCurrent ? Appearance.colors.colOnSecondaryContainer :
+                                                         Appearance.colors.colOnLayer3
                         }
+                    }
 
-                        contentItem: RowLayout {
-                            anchors.fill: parent
-                            spacing: 8
-                            anchors.leftMargin: 12
-                            anchors.rightMargin: 12
-
-                            Loader {
-                                Layout.alignment: Qt.AlignVCenter
-                                active: root.iconFor(rowButton.modelData).length > 0
-                                visible: active
-                                sourceComponent: MaterialSymbol {
-                                    text: root.iconFor(rowButton.modelData)
-                                    iconSize: Appearance.font.pixelSize.larger
-                                    color: rowButton.isCurrent ? Appearance.colors.colOnSecondaryContainer :
-                                                                 Appearance.colors.colOnLayer3
-                                }
-                            }
-
-                            StyledText {
-                                Layout.fillWidth: true
-                                Layout.alignment: Qt.AlignVCenter
-                                color: rowButton.isCurrent ? Appearance.colors.colOnSecondaryContainer :
-                                                             Appearance.colors.colOnLayer3
-                                text: root.textFor(rowButton.modelData)
-                                elide: Text.ElideRight
-                                verticalAlignment: Text.AlignVCenter
-                            }
-                        }
+                    StyledText {
+                        Layout.fillWidth: true
+                        Layout.alignment: Qt.AlignVCenter
+                        color: rowButton.isCurrent ? Appearance.colors.colOnSecondaryContainer :
+                                                     Appearance.colors.colOnLayer3
+                        text: root.textFor(rowButton.modelData)
+                        elide: Text.ElideRight
+                        verticalAlignment: Text.AlignVCenter
                     }
                 }
             }
