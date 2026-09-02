@@ -82,10 +82,10 @@ ColumnLayout {
                 animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
             }
             Behavior on bottomLeftRadius {
-                animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                NumberAnimation { duration: 80; easing.type: Easing.OutQuad }
             }
             Behavior on bottomRightRadius {
-                animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                NumberAnimation { duration: 80; easing.type: Easing.OutQuad }
             }
         }
 
@@ -123,7 +123,7 @@ ColumnLayout {
 
                 rotation: root.popupOpen ? 180 : 0
                 Behavior on rotation {
-                    animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                    NumberAnimation { duration: 80; easing.type: Easing.OutQuad }
                 }
             }
         }
