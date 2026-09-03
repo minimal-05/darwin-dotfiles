@@ -6,8 +6,9 @@ import qs.modules.common.functions
 import QtQuick
 import QtQuick.Layouts
 
-// One row of the app-menu dropdown, shaped like the tray menu's own entries so
-// the two read as the same menu system.
+// One row of the app-menu popup: a RippleButton like the tray menu's entries,
+// set in the same face and colour as the value rows of the other bar popups so
+// the whole popup reads as one of them.
 RippleButton {
     id: root
 
@@ -15,7 +16,7 @@ RippleButton {
     property string trailing: ""
     property bool showChevron: false
     property bool selected: false
-    property color labelColor: Appearance.colors.colOnLayer1
+    property color labelColor: Appearance.colors.colOnSurfaceVariant
 
     signal entered()
 
@@ -41,7 +42,6 @@ RippleButton {
         StyledText {
             Layout.fillWidth: true
             text: root.label
-            font.pixelSize: Appearance.font.pixelSize.smallie
             color: root.labelColor
             elide: Text.ElideRight
             textFormat: Text.PlainText
@@ -50,7 +50,6 @@ RippleButton {
         StyledText {
             visible: root.trailing.length > 0
             text: root.trailing
-            font.pixelSize: Appearance.font.pixelSize.smallie
             color: Appearance.colors.colSubtext
             textFormat: Text.PlainText
         }
