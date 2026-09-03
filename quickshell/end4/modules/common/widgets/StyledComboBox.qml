@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Window
 import qs
 import qs.modules.common
 import qs.modules.common.widgets
@@ -51,6 +52,14 @@ ColumnLayout {
     // A snip overlay covers the screen but cannot take the pointer, so a
     // click meant for the region selection could otherwise fall through and
     // open this: refuse to, and collapse it if one starts while it's open.
+    // GlobalStates is a per-process singleton, though: the bar's own copy of
+    // it goes true, but this component also runs inside Settings, which is
+    // its own separate `quickshell -p settings.qml` process with a
+    // completely disconnected copy that never sees that flag change. Window
+    // .active is a plain QtQuick attached property scoped to this window
+    // specifically, not a shared singleton, so it catches that case too:
+    // whatever takes the screenshot becomes key/active and this window does
+    // not, in whichever process it happens to be running.
     Connections {
         target: GlobalStates
         function onRegionSelectorOpenChanged() {
@@ -58,6 +67,7 @@ ColumnLayout {
                 root.popupOpen = false;
         }
     }
+    Window.onActiveChanged: if (!Window.active) root.popupOpen = false
 
     RippleButton {
         id: trigger
