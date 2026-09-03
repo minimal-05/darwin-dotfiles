@@ -2,23 +2,29 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Window
+import Quickshell
+import Quickshell.Wayland
 import qs
 import qs.modules.common
 import qs.modules.common.widgets
 import qs.modules.common.functions
 
 /**
-* A Material 3 dropdown. The option list expands inline, directly beneath
-* the trigger, growing the surrounding layout -- the same "push the rest of
-* the content down" pattern macOS's own Control Center audio-device picker
-* uses -- instead of floating a separate window over everything.
+* A Material 3 dropdown, built the same way AppMenus.qml builds the bar's
+* app-menu dropdown: one PanelWindow, created once and shown and hidden
+* thereafter (not torn down and rebuilt per toggle -- see AppMenus.qml's own
+* note on why StyledPopup, a LazyLoader, doesn't work for content you need
+* to click into), with no animation on open/close, matching it and every
+* other end4 menu (DockMenu, SysTrayMenu) exactly.
 *
-* A floating popup, even a proper Quickshell PanelWindow built the way
-* DockMenu/SysTrayMenu build theirs, is still a second window whose stacking
-* relative to a screen-region selection isn't this app's to control, and it
-* showed up over one anyway. Inline content can't: it's just part of this
-* window, exactly as visible to a screenshot as any other row already on
-* the page, so nothing extra has to know a screenshot is being taken.
+* Closes on GlobalStates.regionSelectorOpen, the same guard StyledPopup uses
+* to keep the bar's hover popups out of a screen-region selection. That flag
+* is a per-process singleton, though, and this component is also used
+* inside Settings, which runs as its own separate `quickshell -p
+* settings.qml` process with a disconnected copy that never sees it change.
+* Window.active is a plain QtQuick attached property scoped to this window
+* specifically, so it closes on that too regardless of which process it is
+* running in.
 *
 * ponytail: mouse-only, like DockMenu and SysTrayMenu -- no arrow-key/typeahead
 * navigation. Add it if a dropdown with many options actually needs it.
@@ -46,20 +52,16 @@ ColumnLayout {
                                             ? root.model[root.currentIndex] : undefined
     readonly property string displayText: root.textFor(root.currentModelItem)
 
+    readonly property point anchorPoint: {
+        const qsWindow = root.QsWindow;
+        if (qsWindow?.window)
+        return qsWindow.mapFromItem(root, 0, root.height);
+        return root.mapToGlobal(0, root.height);
+    }
+
     spacing: 0
     Layout.fillWidth: true
 
-    // A snip overlay covers the screen but cannot take the pointer, so a
-    // click meant for the region selection could otherwise fall through and
-    // open this: refuse to, and collapse it if one starts while it's open.
-    // GlobalStates is a per-process singleton, though: the bar's own copy of
-    // it goes true, but this component also runs inside Settings, which is
-    // its own separate `quickshell -p settings.qml` process with a
-    // completely disconnected copy that never sees that flag change. Window
-    // .active is a plain QtQuick attached property scoped to this window
-    // specifically, not a shared singleton, so it catches that case too:
-    // whatever takes the screenshot becomes key/active and this window does
-    // not, in whichever process it happens to be running.
     Connections {
         target: GlobalStates
         function onRegionSelectorOpenChanged() {
@@ -67,36 +69,21 @@ ColumnLayout {
                 root.popupOpen = false;
         }
     }
-    Window.onActiveChanged: if (!Window.active) root.popupOpen = false
+    Window.onActiveChanged: if (!Window.active)
+    root.popupOpen = false
 
     RippleButton {
         id: trigger
         Layout.fillWidth: true
         implicitHeight: 40
+        buttonRadius: height / 2
         rippleEnabled: false
+        colBackground: Appearance.colors.colSecondaryContainer
+        colBackgroundHover: Appearance.colors.colSecondaryContainerHover
+
         releaseAction: () => {
-            if (!GlobalStates.regionSelectorOpen)
+            if (!GlobalStates.regionSelectorOpen && Window.active)
                 root.popupOpen = !root.popupOpen;
-        }
-
-        background: Rectangle {
-            topLeftRadius: trigger.height / 2
-            topRightRadius: trigger.height / 2
-            bottomLeftRadius: root.popupOpen ? Appearance.rounding.unsharpen : trigger.height / 2
-            bottomRightRadius: root.popupOpen ? Appearance.rounding.unsharpen : trigger.height / 2
-            color: (trigger.down && !root.popupOpen) ? Appearance.colors.colSecondaryContainerActive : trigger.hovered
-                                                       ? Appearance.colors.colSecondaryContainerHover :
-                                                         Appearance.colors.colSecondaryContainer
-
-            Behavior on color {
-                animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
-            }
-            Behavior on bottomLeftRadius {
-                NumberAnimation { duration: 80; easing.type: Easing.OutQuad }
-            }
-            Behavior on bottomRightRadius {
-                NumberAnimation { duration: 80; easing.type: Easing.OutQuad }
-            }
         }
 
         contentItem: RowLayout {
@@ -130,97 +117,112 @@ ColumnLayout {
                 text: "keyboard_arrow_down"
                 iconSize: Appearance.font.pixelSize.larger
                 color: Appearance.colors.colOnSecondaryContainer
-
                 rotation: root.popupOpen ? 180 : 0
-                Behavior on rotation {
-                    NumberAnimation { duration: 80; easing.type: Easing.OutQuad }
-                }
             }
         }
     }
 
-    Rectangle {
-        id: listPanel
-        Layout.fillWidth: true
-        clip: true
+    PanelWindow {
+        id: popupWindow
+        visible: root.popupOpen && !GlobalStates.regionSelectorOpen
+        color: "transparent"
 
-        topLeftRadius: Appearance.rounding.unsharpen
-        topRightRadius: Appearance.rounding.unsharpen
-        bottomLeftRadius: Appearance.rounding.normal
-        bottomRightRadius: Appearance.rounding.normal
-        color: Appearance.m3colors.m3surfaceContainerHigh
+        readonly property real pad: Appearance.sizes.elevationMargin
 
-        implicitHeight: root.popupOpen ? Math.min(listView.contentHeight + 16, 300) : 0
-        opacity: root.popupOpen ? 1 : 0
-
-        // elementMoveFast (200ms, used everywhere else in this file) still read
-        // as sluggish for an expand/collapse the user checks repeatedly -- cut
-        // to a flat 80ms rather than reusing a shared token.
-        Behavior on implicitHeight {
-            NumberAnimation { duration: 80; easing.type: Easing.OutQuad }
+        anchors {
+            top: true
+            left: true
         }
-        Behavior on opacity {
-            NumberAnimation { duration: 80; easing.type: Easing.OutQuad }
+        implicitWidth: card.implicitWidth + popupWindow.pad * 2
+        implicitHeight: card.implicitHeight + popupWindow.pad * 2
+        margins.top: root.anchorPoint.y
+        margins.left: root.anchorPoint.x
+
+        // Only the card takes input; the elevation margin around it stays
+        // click-through, matching AppMenus.qml's dropdown.
+        mask: Region {
+            item: card
         }
 
-        StyledListView {
-            id: listView
-            anchors.fill: parent
-            anchors.margins: 8
-            clip: true
-            spacing: 2
-            animateAppearance: false
+        exclusionMode: ExclusionMode.Ignore
+        exclusiveZone: 0
+        WlrLayershell.namespace: "quickshell:popup"
+        WlrLayershell.layer: WlrLayer.Overlay
 
-            model: root.model
-            delegate: RippleButton {
-                id: rowButton
-                required property var modelData
-                required property int index
+        StyledRectangularShadow {
+            target: card
+        }
 
-                width: ListView.view ? ListView.view.width : root.width
-                implicitHeight: 40
-                buttonRadius: Appearance.rounding.small
+        Rectangle {
+            id: card
+            anchors.centerIn: parent
+            implicitWidth: root.width
+            implicitHeight: Math.min(listView.contentHeight + 16, 300)
+            radius: Appearance.rounding.small
+            color: Appearance.m3colors.m3surfaceContainer
+            border.width: 1
+            border.color: Appearance.colors.colLayer0Border
 
-                readonly property bool isCurrent: root.currentIndex === rowButton.index
-                colBackground: rowButton.isCurrent ? Appearance.colors.colSecondaryContainer :
-                                                     ColorUtils.transparentize(Appearance.colors.colLayer3, 1)
-                colBackgroundHover: rowButton.isCurrent ? Appearance.colors.colSecondaryContainerHover :
-                                                          Appearance.colors.colLayer3Hover
-                colRipple: rowButton.isCurrent ? Appearance.colors.colSecondaryContainerActive :
-                                                 Appearance.colors.colLayer3Active
+            StyledListView {
+                id: listView
+                anchors.fill: parent
+                anchors.margins: 8
+                clip: true
+                spacing: 2
+                animateAppearance: false
 
-                releaseAction: () => {
-                    root.currentIndex = rowButton.index;
-                    root.activated(rowButton.index);
-                    root.popupOpen = false;
-                }
+                model: root.model
+                delegate: RippleButton {
+                    id: rowButton
+                    required property var modelData
+                    required property int index
 
-                contentItem: RowLayout {
-                    anchors.fill: parent
-                    spacing: 8
-                    anchors.leftMargin: 12
-                    anchors.rightMargin: 12
+                    width: ListView.view ? ListView.view.width : root.width
+                    implicitHeight: 40
+                    buttonRadius: Appearance.rounding.small
 
-                    Loader {
-                        Layout.alignment: Qt.AlignVCenter
-                        active: root.iconFor(rowButton.modelData).length > 0
-                        visible: active
-                        sourceComponent: MaterialSymbol {
-                            text: root.iconFor(rowButton.modelData)
-                            iconSize: Appearance.font.pixelSize.larger
-                            color: rowButton.isCurrent ? Appearance.colors.colOnSecondaryContainer :
-                                                         Appearance.colors.colOnLayer3
-                        }
+                    readonly property bool isCurrent: root.currentIndex === rowButton.index
+                    colBackground: rowButton.isCurrent ? Appearance.colors.colSecondaryContainer :
+                                                         ColorUtils.transparentize(Appearance.colors.colLayer3,
+                                                                                   1)
+                    colBackgroundHover: rowButton.isCurrent ? Appearance.colors.colSecondaryContainerHover :
+                                                              Appearance.colors.colLayer3Hover
+                    colRipple: rowButton.isCurrent ? Appearance.colors.colSecondaryContainerActive :
+                                                     Appearance.colors.colLayer3Active
+
+                    releaseAction: () => {
+                        root.currentIndex = rowButton.index;
+                        root.activated(rowButton.index);
+                        root.popupOpen = false;
                     }
 
-                    StyledText {
-                        Layout.fillWidth: true
-                        Layout.alignment: Qt.AlignVCenter
-                        color: rowButton.isCurrent ? Appearance.colors.colOnSecondaryContainer :
-                                                     Appearance.colors.colOnLayer3
-                        text: root.textFor(rowButton.modelData)
-                        elide: Text.ElideRight
-                        verticalAlignment: Text.AlignVCenter
+                    contentItem: RowLayout {
+                        anchors.fill: parent
+                        spacing: 8
+                        anchors.leftMargin: 12
+                        anchors.rightMargin: 12
+
+                        Loader {
+                            Layout.alignment: Qt.AlignVCenter
+                            active: root.iconFor(rowButton.modelData).length > 0
+                            visible: active
+                            sourceComponent: MaterialSymbol {
+                                text: root.iconFor(rowButton.modelData)
+                                iconSize: Appearance.font.pixelSize.larger
+                                color: rowButton.isCurrent ? Appearance.colors.colOnSecondaryContainer :
+                                                             Appearance.colors.colOnLayer3
+                            }
+                        }
+
+                        StyledText {
+                            Layout.fillWidth: true
+                            Layout.alignment: Qt.AlignVCenter
+                            color: rowButton.isCurrent ? Appearance.colors.colOnSecondaryContainer :
+                                                         Appearance.colors.colOnLayer3
+                            text: root.textFor(rowButton.modelData)
+                            elide: Text.ElideRight
+                            verticalAlignment: Text.AlignVCenter
+                        }
                     }
                 }
             }
