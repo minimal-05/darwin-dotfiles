@@ -59,7 +59,7 @@ Scope {
 
     // The last window hides rather than closing, so the process stays warm for
     // the next open. Tearing the engine down would also segfault in Qt's Cocoa
-    // window teardown, which is why settings and welcome leave crash reports.
+    // window teardown, which is why settings leaves crash reports.
     function closeWindow(win): void {
         if (root.windows.length <= 1) {
             win.visible = false;

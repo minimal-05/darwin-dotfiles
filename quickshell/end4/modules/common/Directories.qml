@@ -50,7 +50,6 @@ Singleton {
     property string userAiPrompts: FileUtils.trimFileProtocol(`${Directories.shellConfig}/ai/prompts`)
     property string userActions: FileUtils.trimFileProtocol(`${Directories.shellConfig}/actions`)
     property string aiChats: FileUtils.trimFileProtocol(`${Directories.state}/user/ai/chats`)
-    property string aiTranslationScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/ai/gemini-translate.sh`)
     property string recordScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/videos/record.sh`)
     property string brightnessScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/macos/brightness.py`)
     property string networkScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/macos/network.sh`)
