@@ -226,12 +226,6 @@ Singleton {
                             property string text: ""
                         }
                     }
-                    property JsonObject weather: JsonObject {
-                        property bool enable: false
-                        property string placementStrategy: "free" // "free", "leastBusy", "mostBusy"
-                        property real x: 400
-                        property real y: 100
-                    }
                 }
                 property string wallpaperPath: ""
                 property string thumbnailPath: ""
@@ -264,7 +258,6 @@ Singleton {
                 property string topLeftIcon: "spark" // Options: "distro" or any icon name in ~/.config/quickshell/assets/icons
                 property bool showBackground: true
                 property bool verbose: true
-                property bool vertical: false
                 property JsonObject resources: JsonObject {
                     property bool alwaysShowSwap: true
                     property bool alwaysShowCpu: true
@@ -294,13 +287,6 @@ Singleton {
                     property int showNumberDelay: 300 // milliseconds
                     property list<string> numberMap: ["1", "2"] // Characters to show instead of numbers on workspace indicator
                     property bool useNerdFont: false
-                }
-                property JsonObject weather: JsonObject {
-                    property bool enable: false
-                    property bool enableGPS: true // gps based location
-                    property string city: "" // When 'enableGPS' is false
-                    property bool useUSCS: false // Instead of metric (SI) units
-                    property int fetchInterval: 10 // minutes
                 }
                 property JsonObject indicators: JsonObject {
                     property JsonObject notifications: JsonObject {
@@ -338,11 +324,6 @@ Singleton {
                     property int key: Appearance.font.pixelSize.smaller
                     property int comment: Appearance.font.pixelSize.smaller
                 }
-            }
-
-            property JsonObject conflictKiller: JsonObject {
-                property bool autoKillNotificationDaemons: false
-                property bool autoKillTrays: false
             }
 
             property JsonObject crosshair: JsonObject {
@@ -392,14 +373,6 @@ Singleton {
                 }
             }
 
-            property JsonObject language: JsonObject {
-                property JsonObject translator: JsonObject {
-                    property string engine: "auto" // Run `trans -list-engines` for available engines. auto should use google
-                    property string targetLanguage: "auto" // Run `trans -list-all` for available languages
-                    property string sourceLanguage: "auto"
-                }
-            }
-
             property JsonObject launcher: JsonObject {
                 property list<string> pinnedApps: [ "org.kde.dolphin", "kitty", "cmake-gui"]
             }
@@ -410,9 +383,6 @@ Singleton {
                     property string from: "19:00" // Format: "HH:mm", 24-hour time
                     property string to: "06:30"   // Format: "HH:mm", 24-hour time
                     property int colorTemperature: 5000
-                }
-                property JsonObject antiFlashbang: JsonObject {
-                    property bool enable: false
                 }
             }
 
@@ -427,7 +397,6 @@ Singleton {
                 property bool centerClock: true
                 property bool showLockedText: true
                 property JsonObject security: JsonObject {
-                    property bool unlockKeyring: true
                     property bool requirePasswordToPower: false
                 }
                 property bool materialShapeChars: true
@@ -506,19 +475,6 @@ Singleton {
                 property int historyLength: 60
             }
 
-            property JsonObject tray: JsonObject {
-                property bool monochromeIcons: true
-                property bool showItemId: false
-                property bool invertPinnedItems: true // Makes the below a whitelist for the tray and blacklist for the pinned area
-                property list<var> pinnedItems: [ "Fcitx" ]
-                property bool filterPassive: true
-            }
-
-            property JsonObject musicRecognition: JsonObject {
-                property int timeout: 16
-                property int interval: 4
-            }
-
             property JsonObject search: JsonObject {
                 property int nonAppResultDelay: 30 // This prevents lagging when typing
                 property string engineBaseUrl: "https://www.google.com/search?q="
@@ -542,10 +498,6 @@ Singleton {
 
             property JsonObject sidebar: JsonObject {
                 property bool keepRightSidebarLoaded: false // built while open only; upstream keeps it resident from launch
-                property JsonObject translator: JsonObject {
-                    property bool enable: false
-                    property int delay: 300 // Delay before sending request. Reduces (potential) rate limits and lag.
-                }
                 property JsonObject ai: JsonObject {
                     property bool textFadeIn: false
                 }
@@ -562,7 +514,6 @@ Singleton {
                 }
 
                 property JsonObject quickToggles: JsonObject {
-                    property string style: "android" // Options: classic, android
                     property JsonObject android: JsonObject {
                         property int columns: 5
                         property list<var> toggles: [

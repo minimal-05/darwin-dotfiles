@@ -30,31 +30,20 @@ ContentPage {
                 Layout.fillWidth: true
 
                 ConfigSelectionArray {
-                    currentValue: (Config.options.bar.bottom ? 1 : 0) | (Config.options.bar.vertical ? 2 : 0)
+                    currentValue: Config.options.bar.bottom ? 1 : 0
                     onSelected: newValue => {
-                        Config.options.bar.bottom = (newValue & 1) !== 0;
-                        Config.options.bar.vertical = (newValue & 2) !== 0;
+                        Config.options.bar.bottom = newValue === 1;
                     }
                     options: [
                         {
                             displayName: Translation.tr("Top"),
                             icon: "arrow_upward",
-                            value: 0 // bottom: false, vertical: false
-                        },
-                        {
-                            displayName: Translation.tr("Left"),
-                            icon: "arrow_back",
-                            value: 2 // bottom: false, vertical: true
+                            value: 0
                         },
                         {
                             displayName: Translation.tr("Bottom"),
                             icon: "arrow_downward",
-                            value: 1 // bottom: true, vertical: false
-                        },
-                        {
-                            displayName: Translation.tr("Right"),
-                            icon: "arrow_forward",
-                            value: 3 // bottom: true, vertical: true
+                            value: 1
                         }
                     ]
                 }
@@ -142,31 +131,6 @@ ContentPage {
     }
 
     ContentSection {
-        icon: "shelf_auto_hide"
-        // macOS: macOS has no API for hosting other apps' menu bar items.
-        visible: !Platform.isMacOS
-        title: Translation.tr("Tray")
-
-        ConfigSwitch {
-            buttonIcon: "keep"
-            text: Translation.tr('Make icons pinned by default')
-            checked: Config.options.tray.invertPinnedItems
-            onCheckedChanged: {
-                Config.options.tray.invertPinnedItems = checked;
-            }
-        }
-        
-        ConfigSwitch {
-            buttonIcon: "colors"
-            text: Translation.tr('Tint icons')
-            checked: Config.options.tray.monochromeIcons
-            onCheckedChanged: {
-                Config.options.tray.monochromeIcons = checked;
-            }
-        }
-    }
-
-    ContentSection {
         icon: "widgets"
         title: Translation.tr("Utility buttons")
 
@@ -240,19 +204,6 @@ ContentPage {
                 onCheckedChanged: {
                     Config.options.bar.utilButtons.showScreenRecord = checked;
                 }
-            }
-        }
-    }
-
-    ContentSection {
-        icon: "cloud"
-        title: Translation.tr("Weather")
-        ConfigSwitch {
-            buttonIcon: "check"
-            text: Translation.tr("Enable")
-            checked: Config.options.bar.weather.enable
-            onCheckedChanged: {
-                Config.options.bar.weather.enable = checked;
             }
         }
     }

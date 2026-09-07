@@ -10,7 +10,6 @@ import Quickshell.Bluetooth
 import Quickshell.Hyprland
 
 import qs.modules.sidebarRight.quickToggles
-import qs.modules.sidebarRight.quickToggles.classicStyle
 
 import qs.modules.sidebarRight.bluetoothDevices
 import qs.modules.sidebarRight.nightLight
@@ -88,12 +87,6 @@ Item {
             }
 
             LoaderedQuickPanelImplementation {
-                styleName: "classic"
-                sourceComponent: ClassicQuickPanel {}
-            }
-
-            LoaderedQuickPanelImplementation {
-                styleName: "android"
                 sourceComponent: AndroidQuickPanel {
                     editMode: root.editMode
                 }
@@ -193,11 +186,8 @@ Item {
 
     component LoaderedQuickPanelImplementation: Loader {
         id: quickPanelImplLoader
-        required property string styleName
         Layout.alignment: item?.Layout.alignment ?? Qt.AlignHCenter
         Layout.fillWidth: item?.Layout.fillWidth ?? false
-        visible: active
-        active: Config.options.sidebar.quickToggles.style === styleName
         Connections {
             target: quickPanelImplLoader.item
             function onOpenAudioOutputDialog() {
@@ -271,7 +261,6 @@ Item {
 
             QuickToggleButton {
                 toggled: root.editMode
-                visible: Config.options.sidebar.quickToggles.style === "android"
                 buttonIcon: "edit"
                 onClicked: root.editMode = !root.editMode
                 StyledToolTip {

@@ -1,4 +1,3 @@
-import qs.modules.bar.weather
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
@@ -324,27 +323,11 @@ Item { // Bar content region
                 }
             }
 
-            SysTray {
-                visible: root.useShortenedForm === 0
-                Layout.fillWidth: false
-                Layout.fillHeight: true
-                invertSide: Config?.options.bar.bottom
-            }
-
             Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
             }
 
-            // Weather
-            Loader {
-                Layout.leftMargin: 4
-                active: Config.options.bar.weather.enable
-
-                sourceComponent: BarGroup {
-                    WeatherBar {}
-                }
-            }
         }
     }
 }
