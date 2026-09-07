@@ -26,6 +26,3 @@ format = " [$symbol$branch](fg:245)"
 min_time = 0
 show_milliseconds = true
 format = " [󰪢 took $duration](fg:245)"
-
-[package]
-disabled = true

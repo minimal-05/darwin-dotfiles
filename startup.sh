@@ -30,26 +30,11 @@ ok() { "$@" >/dev/null 2>&1 || true; }
 mkdir -p "$AGENTS"
 
 say "yabai scripting addition"
-# Needs SIP partially disabled (csrutil status) and root. /etc/sudoers.d/yabai
-# carries a NOPASSWD rule so this never prompts -- but the rule pins the yabai
-# binary's sha256, so a `brew upgrade yabai` silently invalidates it, and yours
-# is currently an empty file. Either way the recovery is the same, so just do
-# it: fix-sa-sudoers.sh rewrites the rule and reloads. It needs your password
-# that once, and nothing here asks again until the next yabai upgrade.
-#
-# Loaded before yabai starts, so a cold start comes up with it already in place.
-if sudo -n yabai --load-sa 2>/dev/null; then
-    echo "  loaded"
-elif [ -t 0 ]; then
-    echo "  no usable NOPASSWD rule -- rebuilding it (asks for your password once)"
-    "$HOME/.config/yabai/fix-sa-sudoers.sh" \
-        || echo "  FAILED: check that 'csrutil status' says disabled"
-else
-    # Never prompt with no terminal to prompt on: run from launchd or a hotkey
-    # this would hang forever holding the rest of the desktop hostage.
-    echo "  skipped: needs a password once, and there is no terminal to ask on"
-    echo "  run this script from a terminal to finish the setup"
-fi
+# Needs SIP partially disabled and root. /etc/sudoers.d/yabai carries a
+# NOPASSWD rule pinned to the yabai binary's sha256, so a `brew upgrade yabai`
+# silently invalidates it; fix-sa-sudoers.sh rewrites the rule, asking for a
+# password once -- which only a terminal can answer, never launchd or a hotkey.
+sudo -n yabai --load-sa 2>/dev/null || { [ -t 0 ] && "$HOME/.config/yabai/fix-sa-sudoers.sh"; } || echo "load-sa: run once from a terminal"
 
 say "yabai"
 ok yabai --start-service
@@ -98,6 +83,9 @@ if [ ! -f "$AGENTS/org.quickshell.files.plist" ] || [ ! -d "$HOME/Applications/S
 fi
 
 say "bar"
+# No -p: the binary defaults QS_CONFIG_NAME to end4 (src/launch/tools.cpp). KeepAlive
+# because quickshell quits when its config tree changes -- a git checkout here takes
+# the bar down with exit 0 -- though this machine does not honour it yet. qs-dev pkills on purpose.
 cat > "$BAR" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -108,29 +96,6 @@ cat > "$BAR" <<PLIST
     <array>
         <string>$QS/bin/qs-start</string>
     </array>
-    <!-- No -p: configs are directories under ~/.config/quickshell and the
-         binary defaults QS_CONFIG_NAME to \`end4\` (src/launch/tools.cpp), so
-         naming a path here would only be a second place to update. Run a
-         different one with \`qs -c mine\`.
-
-         qs-start execs quickshell, so this job's lifetime is the real process
-         rather than a launcher that returns immediately.
-
-         KeepAlive because the shell exits on its own: quickshell quits when the
-         config tree it is rooted in changes, and ~/.config is a git repo, so an
-         ordinary commit or checkout takes the bar down with exit code 0 and it
-         stays down. That is exactly what the old note here predicted. It used
-         to be omitted so qs-switch could hand the strip to SketchyBar without
-         launchd fighting it; both are gone, so nothing wants the bar dead now.
-
-         NOTE: this machine does not currently honour KeepAlive at all -- not
-         even for homebrew's borders agent -- so it is correct config that does
-         nothing yet. Leave it: it costs nothing and works the moment launchd
-         does.
-
-         qs-dev restarts the shell in place and is the one thing that does kill
-         it deliberately -- it pkills and relaunches, so launchd bringing the old
-         one back is not a race it can lose. -->
     <key>RunAtLoad</key><true/>
     <key>KeepAlive</key><true/>
     <key>ThrottleInterval</key><integer>5</integer>
@@ -169,8 +134,4 @@ sleep 3
 
 echo
 say "Loaded"
-for label in com.asmvik.yabai com.koekeishiya.yabai homebrew.mxcl.borders \
-             local.skhd org.quickshell.bar org.quickshell.files; do
-    state="$(launchctl print "$GUI/$label" 2>/dev/null | sed -n 's/^\tstate = //p')"
-    [ -n "$state" ] && printf '  %-26s %s\n' "$label" "$state"
-done
+launchctl list | grep -E 'yabai|borders|skhd|quickshell'

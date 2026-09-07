@@ -23,11 +23,6 @@ warn() { printf '\033[33m    %s\033[0m\n' "$1"; }
 if [ "${1:-}" != "--no-deps" ]; then
   command -v brew >/dev/null || { echo "Install Homebrew first: https://brew.sh" >&2; exit 1; }
 
-  say "Taps"
-  brew tap koekeishiya/formulae
-  brew tap felixkratz/formulae
-  brew tap jackielii/tap
-
   say "Window management"
   brew install --quiet koekeishiya/formulae/yabai felixkratz/formulae/borders
   # skhd-zig is a *cask* now (/Applications/skhd.app), not a formula. It used to

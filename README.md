@@ -1,7 +1,6 @@
 # darwin-dotfiles
 
-macOS desktop config: yabai + skhd for tiling, JankyBorders, a
-[SketchyBar](https://github.com/minimal-05/sketchybar) bar, and
+macOS desktop config: yabai + skhd for tiling, JankyBorders, and
 [Quickshell running natively on macOS](https://github.com/minimal-05/quickshell-macos).
 
 ## Install
@@ -18,26 +17,25 @@ Idempotent — re-run after pulling. `--no-deps` skips Homebrew.
 ## Layout
 
 ```
-quickshell/     shell configs, one dir each — `qs -c end4`, `qs -c mine`
+quickshell/     the shell config — `qs -c end4`
 yabai/ skhd/    tiling WM and hotkeys
 karabiner/      media-key grabs, routed to quickshell over IPC
 borders/        active-window border
 kitty/ nvim/    terminal and editor
-btop/ nnn/ starship.toml
+btop/ starship.toml
 firefox-autoconfig/
 ```
 
-Two directories are separate repos, cloned by `install.sh`:
+The shell itself is a separate repo, cloned by `install.sh`:
 
-- **`sketchybar/`** → [minimal-05/sketchybar](https://github.com/minimal-05/sketchybar)
 - **`~/Projects/quickshell-macos`** → [minimal-05/quickshell-macos](https://github.com/minimal-05/quickshell-macos)
 
 ## Notes
 
 - **Never put a `shell.qml` at the top of `~/.config/quickshell`.** Quickshell
   registers `<xdg dir>/quickshell/shell.qml` as the `default` config and then
-  ignores every subdirectory — one stray file makes `end4` and `mine` both
-  invisible, with no error at all. Configs are directories: `qs -c end4`.
+  ignores every subdirectory — one stray file makes `end4` invisible, with
+  no error at all. Configs are directories: `qs -c end4`.
 - Scripts name the config directory **in full** (`$HOME/.config/quickshell/end4`),
   never a relative walk up from their own location — a relative walk is what
   silently broke `switchwall.sh` the last time this tree moved.
@@ -51,6 +49,4 @@ Two directories are separate repos, cloned by `install.sh`:
   volume/brightness HUD — that is the whole mechanism behind the custom OSD.
   Karabiner can't match brightness key codes in a `from` clause (they're
   output-only), so the rules match plain `f1`–`f12`.
-- `karabiner.json` and `skhdrc` use **absolute paths** to `qs-ipc`; `install.sh`
-  rewrites them for your home directory.
 - yabai's scripting addition needs SIP partially disabled.
