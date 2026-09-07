@@ -209,18 +209,6 @@ ContentPage {
             ConfigSelectionArray {
                 currentValue: Config.options.time.format
                 onSelected: newValue => {
-                    // Keeps hyprlock's clock widget in step with the shell's.
-                    // There is no hyprlock on macOS and no hypr/hyprlock.conf to
-                    // rewrite -- and BSD sed's -i wants a mandatory backup
-                    // suffix, so the call could only ever fail silently.
-                    if (!Platform.isMacOS) {
-                        if (newValue === "hh:mm") {
-                            Quickshell.execDetached(["bash", "-c", `sed -i 's/\\TIME12\\b/TIME/' '${FileUtils.trimFileProtocol(Directories.config)}/hypr/hyprlock.conf'`]);
-                        } else {
-                            Quickshell.execDetached(["bash", "-c", `sed -i 's/\\TIME\\b/TIME12/' '${FileUtils.trimFileProtocol(Directories.config)}/hypr/hyprlock.conf'`]);
-                        }
-                    }
-
                     Config.options.time.format = newValue;
                 }
                 options: [

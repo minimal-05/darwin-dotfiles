@@ -5,29 +5,26 @@ import qs.modules.common
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Cocoa as Cocoa
 
 /**
- * Simple polled resource usage service with RAM, Swap, and CPU usage.
+ * Polled resource usage: RAM, swap and CPU.
  *
- * Linux reads /proc/meminfo and /proc/stat. macOS has neither, so the same
- * counters come from Quickshell.Cocoa.SystemStats, an in-process singleton in
- * quickshell-macos (src/cocoa/sysstats.mm): since-boot CPU ticks from
- * host_statistics64, memory from the VM statistics and swap from
- * vm.swapusage, sampled on its own timer with nothing spawned. The ticks are
- * cumulative like the /proc/stat cpu line, so both branches diff consecutive
- * samples the same way (updateCpuFromTicks). The macOS side lives in
- * ResourceUsageDarwin.qml so the Cocoa import is only parsed there.
- * The property surface is identical to upstream; sizes stay in kB.
+ * The counters come from Quickshell.Cocoa.SystemStats, an in-process
+ * singleton in quickshell-macos (src/cocoa/sysstats.mm): since-boot CPU ticks
+ * from host_statistics64, memory from the VM statistics and swap from
+ * vm.swapusage, sampled on its own timer with nothing spawned. The property
+ * surface is upstream's; sizes stay in kB.
  */
 Singleton {
     id: root
-	property real memoryTotal: 1
-	property real memoryFree: 0
-	property real memoryUsed: memoryTotal - memoryFree
+    property real memoryTotal: 1
+    property real memoryFree: 0
+    property real memoryUsed: memoryTotal - memoryFree
     property real memoryUsedPercentage: memoryUsed / memoryTotal
     property real swapTotal: 1
-	property real swapFree: 0
-	property real swapUsed: swapTotal - swapFree
+    property real swapFree: 0
+    property real swapUsed: swapTotal - swapFree
     property real swapUsedPercentage: swapTotal > 0 ? (swapUsed / swapTotal) : 0
     property real cpuUsage: 0
     property var previousCpuStats
@@ -69,8 +66,8 @@ Singleton {
         updateCpuUsageHistory()
     }
 
-    // Upstream's /proc/stat arithmetic, shared by both branches: usage over the
-    // sample window = 1 - d(idle)/d(total); the first sample only seeds it.
+    // Upstream's /proc/stat arithmetic: usage over the sample window =
+    // 1 - d(idle)/d(total); the first sample only seeds it.
     function updateCpuFromTicks(total, idle) {
         if (previousCpuStats) {
             const totalDiff = total - previousCpuStats.total
@@ -80,65 +77,42 @@ Singleton {
         previousCpuStats = { total, idle }
     }
 
-    // Linux only: the macOS sampler below runs on the singleton's own clock.
-	Timer {
-		interval: 1
-        running: !Platform.isMacOS
-        repeat: true
-		onTriggered: {
-            // Reload files
-            fileMeminfo.item.reload()
-            fileStat.item.reload()
+    // Sizes arrive in bytes; "used" is (active + wired + compressor) pages,
+    // Activity Monitor's definition, and available is total minus that.
+    function apply() {
+        const s = Cocoa.SystemStats
+        memoryTotal = s.memTotal / 1024
+        memoryFree = s.memAvailable / 1024
+        swapTotal = s.swapTotal / 1024
+        swapFree = s.swapFree / 1024
+        updateCpuFromTicks(s.cpuTotal, s.cpuIdle)
+        updateHistories()
+    }
 
-            // Parse memory and swap usage
-            const textMeminfo = fileMeminfo.item.text()
-            memoryTotal = Number(textMeminfo.match(/MemTotal: *(\d+)/)?.[1] ?? 1)
-            memoryFree = Number(textMeminfo.match(/MemAvailable: *(\d+)/)?.[1] ?? 0)
-            swapTotal = Number(textMeminfo.match(/SwapTotal: *(\d+)/)?.[1] ?? 1)
-            swapFree = Number(textMeminfo.match(/SwapFree: *(\d+)/)?.[1] ?? 0)
+    // The singleton's own timer is the sampling clock.
+    Binding {
+        target: Cocoa.SystemStats
+        property: "interval"
+        value: Config.options?.resources?.updateInterval ?? 3000
+    }
 
-            // Parse CPU usage
-            const textStat = fileStat.item.text()
-            const cpuLine = textStat.match(/^cpu\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/)
-            if (cpuLine) {
-                const stats = cpuLine.slice(1).map(Number)
-                const total = stats.reduce((a, b) => a + b, 0)
-                const idle = stats[3]
-                updateCpuFromTicks(total, idle)
-            }
+    Connections {
+        target: Cocoa.SystemStats
+        function onSampled() { root.apply() }
+    }
 
-            root.updateHistories()
-            interval = Config.options?.resources?.updateInterval ?? 3000
-        }
-	}
+    // The singleton sampled once when it was created, so this seeds the tick
+    // baseline immediately; the first real CPU% lands one interval later.
+    Component.onCompleted: root.apply()
 
-    // /proc only exists on Linux; left inactive on macOS so nothing opens a missing path.
-	Loader { id: fileMeminfo; active: !Platform.isMacOS; sourceComponent: FileView { path: "/proc/meminfo" } }
-    Loader { id: fileStat; active: !Platform.isMacOS; sourceComponent: FileView { path: "/proc/stat" } }
-
-    // macOS: Quickshell.Cocoa.SystemStats, zero spawns. A URL rather than an
-    // inline component so the Cocoa import is never parsed on Linux.
-    Loader { active: Platform.isMacOS; source: "ResourceUsageDarwin.qml" }
-
+    // No max-frequency figure is exposed on Apple silicon, so name the chip
+    // instead of inventing a GHz number.
     Process {
-        id: findCpuMaxFreqProc
-        environment: ({
-            LANG: "C",
-            LC_ALL: "C"
-        })
-        // No max-frequency figure is exposed on Apple silicon, so name the chip
-        // instead of inventing a GHz number.
-        command: Platform.isMacOS
-            ? ["/bin/sh", "-c", "sysctl -n machdep.cpu.brand_string 2>/dev/null || echo CPU"]
-            : ["bash", "-c", "lscpu | grep 'CPU max MHz' | awk '{print $4}'"]
+        command: ["/bin/sh", "-c", "sysctl -n machdep.cpu.brand_string 2>/dev/null || echo CPU"]
         running: true
         stdout: StdioCollector {
             id: outputCollector
-            onStreamFinished: {
-                root.maxAvailableCpuString = Platform.isMacOS
-                    ? (outputCollector.text.trim() || "--")
-                    : (parseFloat(outputCollector.text) / 1000).toFixed(0) + " GHz"
-            }
+            onStreamFinished: root.maxAvailableCpuString = outputCollector.text.trim() || "--"
         }
     }
 }

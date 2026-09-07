@@ -178,12 +178,9 @@ def apply_kitty(colours: dict, dark: bool) -> str:
 
     body = re.sub(r"\$(\w+) #", replace, KITTY_TEMPLATE.read_text())
 
-    # The template seeds the body from the ANSI base scheme, which leaves the
-    # terminal a gruvbox grey next to a bar painted from the wallpaper. Take
-    # the body straight from the palette instead, so the terminal background
-    # IS the shell's background. kitty takes the last value for a key, so
-    # these override the template above without editing it. The numbered ANSI
-    # slots stay as they are -- they still need a red that reads as red.
+    # The template only carries the numbered ANSI slots, harmonised from the
+    # base scheme so a red still reads as red. The body colours come straight
+    # from the palette, so the terminal background IS the shell's background.
     overrides = {
         "background": colours["surface"],
         "foreground": colours["on_surface"],

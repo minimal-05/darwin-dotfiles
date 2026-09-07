@@ -176,11 +176,9 @@ Singleton {
                 property string bluetooth: `open "x-apple.systempreferences:com.apple.BluetoothSettings"`
                 property string changePassword: `open "x-apple.systempreferences:com.apple.Passwords-Settings.extension"`
                 property string network: `open "x-apple.systempreferences:com.apple.Network-Settings.extension"`
-                property string manageUser: `open "x-apple.systempreferences:com.apple.Users-Groups-Settings.extension"`
                 property string networkEthernet: `open "x-apple.systempreferences:com.apple.Network-Settings.extension"`
                 property string taskManager: `open -a "Activity Monitor"`
                 property string terminal: "kitty -1" // This is only for shell actions
-                property string update: `open "x-apple.systempreferences:com.apple.Software-Update-Settings.extension"`
                 property string volumeMixer: `open "x-apple.systempreferences:com.apple.Sound-Settings.extension"`
             }
 
@@ -306,10 +304,6 @@ Singleton {
                 property int suspend: 3
             }
 
-            property JsonObject calendar: JsonObject {
-                property string locale: "en-GB"
-            }
-
             property JsonObject cheatsheet: JsonObject {
                 // Use a nerdfont to see the icons
                 // 0: 󰖳  | 1: 󰌽 | 2: 󰘳 | 3:  | 4: 󰨡
@@ -373,10 +367,6 @@ Singleton {
                 }
             }
 
-            property JsonObject launcher: JsonObject {
-                property list<string> pinnedApps: [ "org.kde.dolphin", "kitty", "cmake-gui"]
-            }
-
             property JsonObject light: JsonObject {
                 property JsonObject night: JsonObject {
                     property bool automatic: true
@@ -387,7 +377,6 @@ Singleton {
             }
 
             property JsonObject lock: JsonObject {
-                property bool useHyprlock: false
                 property bool launchOnStartup: false
                 property JsonObject blur: JsonObject {
                     property bool enable: true
@@ -464,9 +453,6 @@ Singleton {
                 property JsonObject circle: JsonObject {
                     property int strokeWidth: 6
                     property int padding: 10
-                }
-                property JsonObject annotation: JsonObject {
-                    property bool useSatty: false
                 }
             }
 
