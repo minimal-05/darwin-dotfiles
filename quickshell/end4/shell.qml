@@ -28,6 +28,9 @@ ShellRoot {
         AirPlay.load()
     }
 
-    IllogicalImpulseFamily {}
+    LazyLoader {
+        active: Config.ready
+        component: IllogicalImpulseFamily {}
+    }
 }
 
