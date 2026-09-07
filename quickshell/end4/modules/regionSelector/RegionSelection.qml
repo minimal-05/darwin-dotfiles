@@ -214,7 +214,7 @@ PanelWindow {
 
     Process {
         id: imageDetectionProcess
-        command: ["bash", "-c", `${Directories.scriptPath}/images/find-regions-venv.sh ` 
+        command: ["bash", "-c", `${Directories.scriptPath}/images/find_regions.py ` 
             + `--hyprctl ` 
             + `--image '${StringUtils.shellSingleQuoteEscape(root.screenshotPath)}' ` 
             + `--max-width ${Math.round(root.screen.width * root.falsePositivePreventionRatio)} ` 

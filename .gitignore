@@ -7,6 +7,11 @@ gh/
 # editor / tool state, not config
 nvim/lazy-lock.json
 **/*.log
+__pycache__/
+*.pyc
+
+# app state written by the Eden launcher, not config
+eden/
 
 # backup litter — git is the backup now
 *.bak

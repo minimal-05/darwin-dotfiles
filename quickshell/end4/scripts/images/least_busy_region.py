@@ -7,6 +7,17 @@ import cv2
 import numpy as np
 import argparse
 import json
+import subprocess
+
+def readable_image(path):
+    # macOS hands out wallpapers as .heic, which OpenCV cannot decode, so a
+    # .heic argument is converted with sips (a base-install tool) on the way in.
+    if not path.lower().endswith(('.heic', '.heif')):
+        return path
+    out = os.path.join(os.environ.get('TMPDIR', '/tmp'), 'qs-' + os.path.splitext(os.path.basename(path))[0] + '.png')
+    if not os.path.isfile(out):
+        subprocess.run(['sips', '-s', 'format', 'png', path, '--out', out], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return out
 
 def center_crop(img, target_w, target_h):
     h, w = img.shape[:2]
@@ -323,6 +334,7 @@ def main():
     parser.add_argument("--vertical-padding", "-vp", type=int, default=50, help="Minimum vertical distance from region to image edge")
     parser.add_argument("--busiest", action="store_true", help="Find the busiest region instead of the least busy")
     args = parser.parse_args()
+    args.image_path = readable_image(args.image_path)
 
     if args.largest_region:
         center, size, var = find_largest_region(

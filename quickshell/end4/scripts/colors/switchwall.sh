@@ -2,7 +2,7 @@
 #
 # Wallpaper + Material You colour generation, macOS version.
 #
-# The Linux original (kept alongside as switchwall.linux.sh) drives matugen
+# The Linux original drives matugen
 # templates, KDE's kde-material-you-colors, GNOME gsettings and hyprctl. None of
 # those exist here, and it aborted before doing anything — which is why the
 # wallpaper thumbnail, the light/dark buttons, the palette picker and every

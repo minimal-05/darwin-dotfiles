@@ -4,9 +4,21 @@ import argparse
 import cv2
 import json
 import numpy as np
+import os
+import subprocess
 import sys
 
 DEFAULT_IMAGE_PATH = '/tmp/quickshell/media/screenshot/image'
+
+def readable_image(path):
+    # macOS hands out wallpapers as .heic, which OpenCV cannot decode, so a
+    # .heic argument is converted with sips (a base-install tool) on the way in.
+    if not path.lower().endswith(('.heic', '.heif')):
+        return path
+    out = os.path.join(os.environ.get('TMPDIR', '/tmp'), 'qs-' + os.path.splitext(os.path.basename(path))[0] + '.png')
+    if not os.path.isfile(out):
+        subprocess.run(['sips', '-s', 'format', 'png', path, '--out', out], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return out
 
 def iou(boxA, boxB):
     # Compute intersection over union for two boxes
@@ -95,7 +107,7 @@ def main():
     args = parser.parse_args()
 
     regions, image = find_regions(
-        args.image,
+        readable_image(args.image),
         min_width=args.min_width,
         min_height=args.min_height,
         max_width=args.max_width,
