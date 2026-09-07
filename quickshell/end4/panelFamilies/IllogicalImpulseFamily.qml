@@ -13,20 +13,17 @@ import qs.modules.notificationPopup
 import qs.modules.onScreenDisplay
 import qs.modules.onScreenKeyboard
 import qs.modules.overview
-import qs.modules.polkit
 import qs.modules.regionSelector
 import qs.modules.screenCorners
 import qs.modules.screenRecord
-import qs.modules.screenTranslator
 import qs.modules.sessionScreen
 import qs.modules.sidebarLeft
 import qs.modules.sidebarRight
 import qs.modules.overlay
-import qs.modules.verticalBar
 import qs.modules.wallpaperSelector
 
 Scope {
-    PanelLoader { extraCondition: !Config.options.bar.vertical; component: Bar {} }
+    PanelLoader { component: Bar {} }
     PanelLoader { component: Background {} }
     PanelLoader { component: CaptureShelf {} }
     PanelLoader { component: Cheatsheet {} }
@@ -38,14 +35,11 @@ Scope {
     PanelLoader { component: OnScreenKeyboard {} }
     PanelLoader { component: Overlay {} }
     PanelLoader { component: Overview {} }
-    PanelLoader { component: Polkit {} }
     PanelLoader { component: RegionSelector {} }
     PanelLoader { component: ScreenCorners {} }
     PanelLoader { component: ScreenRecordOverlay {} }
-    PanelLoader { component: ScreenTranslator {} }
     PanelLoader { component: SessionScreen {} }
     PanelLoader { component: SidebarLeft {} }
     PanelLoader { component: SidebarRight {} }
-    PanelLoader { extraCondition: Config.options.bar.vertical; component: VerticalBar {} }
     PanelLoader { component: WallpaperSelector {} }
 }

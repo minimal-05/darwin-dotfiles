@@ -7,6 +7,11 @@ gh/
 # editor / tool state, not config
 nvim/lazy-lock.json
 **/*.log
+__pycache__/
+*.pyc
+
+# app state written by the Eden launcher, not config
+eden/
 
 # backup litter — git is the backup now
 *.bak
@@ -17,8 +22,5 @@ nvim/lazy-lock.json
 *.bak-*
 *.quickshell-version
 
-# compiled helper binaries — rebuild from the .swift/.c sources beside them
-sketchybar/helpers/**/bin/
-
-# sketchybar is its own repo, cloned to ~/.config/sketchybar by install.sh
-sketchybar/
+# Karabiner writes a dated copy of karabiner.json on every save
+karabiner/automatic_backups/

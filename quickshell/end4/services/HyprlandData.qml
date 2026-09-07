@@ -76,9 +76,6 @@ Singleton {
     function updateWorkspaces() { root.refresh(); }
     function updateAll() { root.refresh(); }
 
-    // How many refreshes have run. Read by _probe_hyprlanddata.qml.
-    property int refreshes: 0
-
     function refresh() {
         root.pending = true;
         refreshTimer.restart();
@@ -87,7 +84,6 @@ Singleton {
     function runPending() {
         if (root.pending && !getAll.running) {
             root.pending = false;
-            root.refreshes++;
             getAll.running = true;
         }
     }

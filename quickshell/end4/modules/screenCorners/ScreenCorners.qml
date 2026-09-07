@@ -29,8 +29,6 @@ Scope {
     // edge behind it is wallpaper like the other three and wants the same
     // corners. The wedge clears the pill (5.6px deep at the pill's 8px inset),
     // so it rounds the padding around the pill instead of biting into it.
-    readonly property bool barVertical: Config.options.bar.vertical
-    // bar.bottom doubles as "right" for a vertical bar, as in YabaiBarSpace.
     readonly property bool barFarSide: Config.options.bar.bottom
     readonly property bool barFloating: Config.options.bar.cornerStyle === 1
 
@@ -170,13 +168,13 @@ Scope {
                 screen: modelData
                 corner: RoundCorner.CornerEnum.TopRight
                 fullscreen: monitorScope.fullscreen
-                coveredByBar: screenCorners.barVertical ? screenCorners.barFarSide : !screenCorners.barFarSide
+                coveredByBar: !screenCorners.barFarSide
             }
             CornerPanelWindow {
                 screen: modelData
                 corner: RoundCorner.CornerEnum.BottomLeft
                 fullscreen: monitorScope.fullscreen
-                coveredByBar: screenCorners.barVertical ? !screenCorners.barFarSide : screenCorners.barFarSide
+                coveredByBar: screenCorners.barFarSide
             }
             CornerPanelWindow {
                 screen: modelData

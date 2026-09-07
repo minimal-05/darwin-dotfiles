@@ -50,13 +50,9 @@ Item {
             visible: Config.options.bar.utilButtons.showColorPicker
             sourceComponent: CircleUtilButton {
                 Layout.alignment: Qt.AlignVCenter
-                // hyprpicker is a Wayland screencopy client and does nothing
-                // here. Digital Color Meter is the macOS equivalent and ships
-                // with the OS; it reads the colour under the cursor and copies
-                // it on Cmd+Shift+C rather than straight to the clipboard.
-                onClicked: Platform.isMacOS
-                    ? Quickshell.execDetached(["open", "-a", "Digital Color Meter"])
-                    : Quickshell.execDetached(["hyprpicker", "-a"])
+                // Digital Color Meter ships with the OS; it reads the colour
+                // under the cursor and copies it on Cmd+Shift+C.
+                onClicked: Quickshell.execDetached(["open", "-a", "Digital Color Meter"])
                 MaterialSymbol {
                     horizontalAlignment: Qt.AlignHCenter
                     fill: 1

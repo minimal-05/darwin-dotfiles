@@ -20,7 +20,7 @@ ButtonMouseArea {
         monitor: root.monitor
     }
 
-    property bool vertical: Config.options.bar.vertical
+    property bool vertical: false
     property bool superPressAndHeld: false // Relevant modifications at bottom of file
 
     property real workspaceButtonWidth: 26
@@ -36,7 +36,7 @@ ButtonMouseArea {
     Layout.alignment: vertical ? Qt.AlignHCenter : Qt.AlignVCenter
     Layout.fillWidth: vertical
     Layout.fillHeight: !vertical
-    readonly property real barThickness: vertical ? Appearance.sizes.verticalBarWidth : Appearance.sizes.barHeight
+    readonly property real barThickness: Appearance.sizes.barHeight
     implicitWidth: vertical ? barThickness : occupiedIndicators.implicitWidth
     implicitHeight: vertical ? occupiedIndicators.implicitHeight : barThickness
 

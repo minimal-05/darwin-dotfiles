@@ -78,8 +78,6 @@ Singleton {
         JsonAdapter {
             id: configOptionsJsonAdapter
 
-            property string panelFamily: "main" // "main", "waffle"
-
             property JsonObject policies: JsonObject {
                 property int ai: 1 // 0: No | 1: Yes | 2: Local
             }
@@ -178,11 +176,9 @@ Singleton {
                 property string bluetooth: `open "x-apple.systempreferences:com.apple.BluetoothSettings"`
                 property string changePassword: `open "x-apple.systempreferences:com.apple.Passwords-Settings.extension"`
                 property string network: `open "x-apple.systempreferences:com.apple.Network-Settings.extension"`
-                property string manageUser: `open "x-apple.systempreferences:com.apple.Users-Groups-Settings.extension"`
                 property string networkEthernet: `open "x-apple.systempreferences:com.apple.Network-Settings.extension"`
                 property string taskManager: `open -a "Activity Monitor"`
                 property string terminal: "kitty -1" // This is only for shell actions
-                property string update: `open "x-apple.systempreferences:com.apple.Software-Update-Settings.extension"`
                 property string volumeMixer: `open "x-apple.systempreferences:com.apple.Sound-Settings.extension"`
             }
 
@@ -228,12 +224,6 @@ Singleton {
                             property string text: ""
                         }
                     }
-                    property JsonObject weather: JsonObject {
-                        property bool enable: false
-                        property string placementStrategy: "free" // "free", "leastBusy", "mostBusy"
-                        property real x: 400
-                        property real y: 100
-                    }
                 }
                 property string wallpaperPath: ""
                 property string thumbnailPath: ""
@@ -266,7 +256,6 @@ Singleton {
                 property string topLeftIcon: "spark" // Options: "distro" or any icon name in ~/.config/quickshell/assets/icons
                 property bool showBackground: true
                 property bool verbose: true
-                property bool vertical: false
                 property JsonObject resources: JsonObject {
                     property bool alwaysShowSwap: true
                     property bool alwaysShowCpu: true
@@ -297,13 +286,6 @@ Singleton {
                     property list<string> numberMap: ["1", "2"] // Characters to show instead of numbers on workspace indicator
                     property bool useNerdFont: false
                 }
-                property JsonObject weather: JsonObject {
-                    property bool enable: false
-                    property bool enableGPS: true // gps based location
-                    property string city: "" // When 'enableGPS' is false
-                    property bool useUSCS: false // Instead of metric (SI) units
-                    property int fetchInterval: 10 // minutes
-                }
                 property JsonObject indicators: JsonObject {
                     property JsonObject notifications: JsonObject {
                         property bool showUnreadCount: false
@@ -322,10 +304,6 @@ Singleton {
                 property int suspend: 3
             }
 
-            property JsonObject calendar: JsonObject {
-                property string locale: "en-GB"
-            }
-
             property JsonObject cheatsheet: JsonObject {
                 // Use a nerdfont to see the icons
                 // 0: 󰖳  | 1: 󰌽 | 2: 󰘳 | 3:  | 4: 󰨡
@@ -340,11 +318,6 @@ Singleton {
                     property int key: Appearance.font.pixelSize.smaller
                     property int comment: Appearance.font.pixelSize.smaller
                 }
-            }
-
-            property JsonObject conflictKiller: JsonObject {
-                property bool autoKillNotificationDaemons: false
-                property bool autoKillTrays: false
             }
 
             property JsonObject crosshair: JsonObject {
@@ -394,19 +367,6 @@ Singleton {
                 }
             }
 
-            property JsonObject language: JsonObject {
-                property string ui: "auto" // UI language. "auto" for system locale, or specific language code like "zh_CN", "en_US"
-                property JsonObject translator: JsonObject {
-                    property string engine: "auto" // Run `trans -list-engines` for available engines. auto should use google
-                    property string targetLanguage: "auto" // Run `trans -list-all` for available languages
-                    property string sourceLanguage: "auto"
-                }
-            }
-
-            property JsonObject launcher: JsonObject {
-                property list<string> pinnedApps: [ "org.kde.dolphin", "kitty", "cmake-gui"]
-            }
-
             property JsonObject light: JsonObject {
                 property JsonObject night: JsonObject {
                     property bool automatic: true
@@ -414,13 +374,9 @@ Singleton {
                     property string to: "06:30"   // Format: "HH:mm", 24-hour time
                     property int colorTemperature: 5000
                 }
-                property JsonObject antiFlashbang: JsonObject {
-                    property bool enable: false
-                }
             }
 
             property JsonObject lock: JsonObject {
-                property bool useHyprlock: false
                 property bool launchOnStartup: false
                 property JsonObject blur: JsonObject {
                     property bool enable: true
@@ -430,7 +386,6 @@ Singleton {
                 property bool centerClock: true
                 property bool showLockedText: true
                 property JsonObject security: JsonObject {
-                    property bool unlockKeyring: true
                     property bool requirePasswordToPower: false
                 }
                 property bool materialShapeChars: true
@@ -499,27 +454,11 @@ Singleton {
                     property int strokeWidth: 6
                     property int padding: 10
                 }
-                property JsonObject annotation: JsonObject {
-                    property bool useSatty: false
-                }
             }
 
             property JsonObject resources: JsonObject {
                 property int updateInterval: 3000
                 property int historyLength: 60
-            }
-
-            property JsonObject tray: JsonObject {
-                property bool monochromeIcons: true
-                property bool showItemId: false
-                property bool invertPinnedItems: true // Makes the below a whitelist for the tray and blacklist for the pinned area
-                property list<var> pinnedItems: [ "Fcitx" ]
-                property bool filterPassive: true
-            }
-
-            property JsonObject musicRecognition: JsonObject {
-                property int timeout: 16
-                property int interval: 4
             }
 
             property JsonObject search: JsonObject {
@@ -545,10 +484,6 @@ Singleton {
 
             property JsonObject sidebar: JsonObject {
                 property bool keepRightSidebarLoaded: false // built while open only; upstream keeps it resident from launch
-                property JsonObject translator: JsonObject {
-                    property bool enable: false
-                    property int delay: 300 // Delay before sending request. Reduces (potential) rate limits and lag.
-                }
                 property JsonObject ai: JsonObject {
                     property bool textFadeIn: false
                 }
@@ -565,7 +500,6 @@ Singleton {
                 }
 
                 property JsonObject quickToggles: JsonObject {
-                    property string style: "android" // Options: classic, android
                     property JsonObject android: JsonObject {
                         property int columns: 5
                         property list<var> toggles: [
@@ -646,27 +580,6 @@ Singleton {
                     property list<string> networkNameKeywords: ["airport", "cafe", "college", "company", "eduroam", "free", "guest", "public", "school", "university"]
                     property list<string> fileKeywords: ["anime", "booru", "ecchi", "hentai", "yande.re", "konachan", "breast", "nipples", "pussy", "nsfw", "spoiler", "girl"]
                     property list<string> linkKeywords: ["hentai", "porn", "sukebei", "hitomi.la", "rule34", "gelbooru", "fanbox", "dlsite"]
-                }
-            }
-
-            property JsonObject waffles: JsonObject {
-                // Some spots are kinda janky/awkward. Setting the following to
-                // false will make (some) stuff also be like that for accuracy. 
-                // Example: the right-click menu of the Start button
-                property JsonObject tweaks: JsonObject {
-                    property bool switchHandlePositionFix: true
-                    property bool smootherMenuAnimations: true
-                    property bool smootherSearchBar: true
-                }
-                property JsonObject bar: JsonObject {
-                    property bool bottom: true
-                    property bool leftAlignApps: false
-                }
-                property JsonObject actionCenter: JsonObject {
-                    property list<string> toggles: [ "network", "bluetooth", "easyEffects", "powerProfile", "idleInhibitor", "nightLight", "darkMode", "antiFlashbang", "cloudflareWarp", "mic", "musicRecognition", "notifications", "onScreenKeyboard", "gameMode", "screenSnip", "colorPicker" ]
-                }
-                property JsonObject calendar: JsonObject {
-                    property bool force2CharDayOfWeek: true
                 }
             }
         }

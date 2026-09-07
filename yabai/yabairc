@@ -14,22 +14,11 @@ yabai -m signal --add event=dock_did_restart action="sudo -n yabai --load-sa"
 # same reason skhdrc's and karabiner.json's qs-ipc calls are.
 [ -x "$HOME/Projects/quickshell-macos/bin/qs-yabai-signals" ] && "$HOME/Projects/quickshell-macos/bin/qs-yabai-signals" install
 
-yabai -m config mouse_follows_focus off \
-  focus_follows_mouse autofocus \
+yabai -m config focus_follows_mouse autofocus \
   window_zoom_persist off \
-  window_placement second_child \
   window_shadow float \
   window_opacity off \
-  window_opacity_duration 0.2 \
-  active_window_opacity 1.0 \
-  normal_window_opacity 0.8 \
-  split_ratio 0.50 \
-  mouse_modifier fn \
-  mouse_action1 move \
-  mouse_action2 resize \
-  mouse_drop_action swap \
   external_bar all:40:0 \
-  top_padding 0 \
   bottom_padding 8 \
   left_padding 8 \
   right_padding 8 \
@@ -45,7 +34,6 @@ yabai -m rule --add label="Select file to save to" app="^Inkscape$" title="Selec
 # belongs in the tiling layout.
 yabai -m rule --add label=quickshell app="^quickshell$" manage=off
 
-yabai -m config layout bsp
 yabai -m rule --apply
 
 # Window border colours -- JankyBorders' ring and this config's own

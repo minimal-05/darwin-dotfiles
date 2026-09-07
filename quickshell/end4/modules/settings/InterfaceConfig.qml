@@ -150,18 +150,6 @@ ContentPage {
         title: Translation.tr("Lock screen")
 
         ConfigSwitch {
-            buttonIcon: "water_drop"
-            text: Translation.tr('Use Hyprlock (instead of Quickshell)')
-            checked: Config.options.lock.useHyprlock
-            onCheckedChanged: {
-                Config.options.lock.useHyprlock = checked;
-            }
-            StyledToolTip {
-                text: Translation.tr("If you want to somehow use fingerprint unlock...")
-            }
-        }
-
-        ConfigSwitch {
             buttonIcon: "account_circle"
             text: Translation.tr('Launch on startup')
             checked: Config.options.lock.launchOnStartup
@@ -185,17 +173,6 @@ ContentPage {
                 }
             }
 
-            ConfigSwitch {
-                buttonIcon: "key_vertical"
-                text: Translation.tr('Also unlock keyring')
-                checked: Config.options.lock.security.unlockKeyring
-                onCheckedChanged: {
-                    Config.options.lock.security.unlockKeyring = checked;
-                }
-                StyledToolTip {
-                    text: Translation.tr("This is usually safe and needed for your browser and AI sidebar anyway\nMostly useful for those who use lock on startup instead of a display manager that does it (GDM, SDDM, etc.)")
-                }
-            }
         }
 
         ContentSubsection {
@@ -485,40 +462,10 @@ ContentPage {
             }
         }
 
-        ConfigSwitch {
-            buttonIcon: "translate"
-            text: Translation.tr('Enable translator')
-            checked: Config.options.sidebar.translator.enable
-            onCheckedChanged: {
-                Config.options.sidebar.translator.enable = checked;
-            }
-        }
-
         ContentSubsection {
             title: Translation.tr("Quick toggles")
             
-            ConfigSelectionArray {
-                Layout.fillWidth: false
-                currentValue: Config.options.sidebar.quickToggles.style
-                onSelected: newValue => {
-                    Config.options.sidebar.quickToggles.style = newValue;
-                }
-                options: [
-                    {
-                        displayName: Translation.tr("Classic"),
-                        icon: "password_2",
-                        value: "classic"
-                    },
-                    {
-                        displayName: Translation.tr("Android"),
-                        icon: "action_key",
-                        value: "android"
-                    }
-                ]
-            }
-
             ConfigSpinBox {
-                enabled: Config.options.sidebar.quickToggles.style === "android"
                 icon: "splitscreen_left"
                 text: Translation.tr("Columns")
                 value: Config.options.sidebar.quickToggles.android.columns

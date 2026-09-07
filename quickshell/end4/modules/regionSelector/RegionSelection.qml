@@ -96,7 +96,7 @@ PanelWindow {
         const topLayers = layersOfThisMonitor?.levels["2"]
         if (!topLayers) return [];
         const nonBarTopLayers = topLayers
-            .filter(layer => !(layer.namespace.includes(":bar") || layer.namespace.includes(":verticalBar") || layer.namespace.includes(":dock")))
+            .filter(layer => !(layer.namespace.includes(":bar") || layer.namespace.includes(":dock")))
             .map(layer => {
             return {
                 at: [layer.x, layer.y],
@@ -214,7 +214,7 @@ PanelWindow {
 
     Process {
         id: imageDetectionProcess
-        command: ["bash", "-c", `${Directories.scriptPath}/images/find-regions-venv.sh ` 
+        command: ["bash", "-c", `${Directories.scriptPath}/images/find_regions.py ` 
             + `--hyprctl ` 
             + `--image '${StringUtils.shellSingleQuoteEscape(root.screenshotPath)}' ` 
             + `--max-width ${Math.round(root.screen.width * root.falsePositivePreventionRatio)} ` 
