@@ -11,15 +11,11 @@ import "services"
 import "panelFamilies"
 
 import QtQuick
-import QtQuick.Window
 import Quickshell
-import Quickshell.Io
-import Quickshell.Hyprland
 
 ShellRoot {
     id: root
 
-    // Stuff for every panel family
     ReloadPopup {}
 
     Component.onCompleted: {
@@ -34,46 +30,6 @@ ShellRoot {
         AirPlay.load()
     }
 
-
-    // Panel families
-    property list<string> families: ["main", "waffle"]
-    function cyclePanelFamily() {
-        const currentIndex = families.indexOf(Config.options.panelFamily)
-        const nextIndex = (currentIndex + 1) % families.length
-        Config.options.panelFamily = families[nextIndex]
-    }
-
-    component PanelFamilyLoader: LazyLoader {
-        required property string identifier
-        property bool extraCondition: true
-        active: Config.ready && Config.options.panelFamily === identifier && extraCondition
-    }
-    
-    PanelFamilyLoader {
-        identifier: "main"
-        component: IllogicalImpulseFamily {}
-    }
-
-    PanelFamilyLoader {
-        identifier: "waffle"
-        component: WaffleFamily {}
-    }
-
-
-    // Shortcuts
-    IpcHandler {
-        target: "panelFamily"
-
-        function cycle(): void {
-            root.cyclePanelFamily()
-        }
-    }
-
-    GlobalShortcut {
-        name: "panelFamilyCycle"
-        description: "Cycles panel family"
-
-        onPressed: root.cyclePanelFamily()
-    }
+    IllogicalImpulseFamily {}
 }
 
