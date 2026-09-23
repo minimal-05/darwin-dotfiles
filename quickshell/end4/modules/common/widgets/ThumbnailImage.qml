@@ -43,7 +43,11 @@ StyledImage {
         command: {
             const maxSize = Images.thumbnailSizes[root.thumbnailSizeName];
             return ["bash", "-c", 
-                `[ -f '${FileUtils.trimFileProtocol(root.thumbnailPath)}' ] && exit 0 || { magick '${root.sourcePath}' -resize ${maxSize}x${maxSize} '${FileUtils.trimFileProtocol(root.thumbnailPath)}' && exit 1; }`
+                // mkdir first: the freedesktop cache directory does not exist
+                // until something makes it, and magick will not create it. Without
+                // this every generation failed on OpenBlob, nothing was ever
+                // cached, and every thumbnail stayed blank forever.
+                `[ -f '${FileUtils.trimFileProtocol(root.thumbnailPath)}' ] && exit 0 || { mkdir -p "$(dirname '${FileUtils.trimFileProtocol(root.thumbnailPath)}')" && magick '${root.sourcePath}' -resize ${maxSize}x${maxSize} '${FileUtils.trimFileProtocol(root.thumbnailPath)}' && exit 1; }`
             ]
         }
         onExited: (exitCode, exitStatus) => {

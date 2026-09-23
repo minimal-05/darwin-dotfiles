@@ -62,6 +62,7 @@ MouseArea {
                         id: thumbnailImage
                         generateThumbnail: false
                         sourcePath: fileModelData.filePath
+                        thumbnailSizeName: Wallpapers.thumbnailSizeName
 
                         cache: false
                         fillMode: Image.PreserveAspectCrop

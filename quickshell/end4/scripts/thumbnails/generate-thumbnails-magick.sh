@@ -48,7 +48,12 @@ generate_thumbnail() {
     local abs_path
     abs_path="$(realpath "$src")"
     # Skip files with multiple frames (GIFs, videos, etc.)
-    case "${abs_path,,}" in
+    # macOS ships bash 3.2, which has no ${var,,} lowercase expansion -- that is
+    # a bash 4 feature, and the "bad substitution" it raised here aborted every
+    # file before a single thumbnail was written. tr is portable.
+    local lower_path
+    lower_path="$(printf '%s' "$abs_path" | tr '[:upper:]' '[:lower:]')"
+    case "$lower_path" in
         *.gif|*.mp4|*.webm|*.mkv|*.avi|*.mov)
             return
             ;;
@@ -96,7 +101,16 @@ while [[ $# -gt 0 ]]; do
 done
 
 THUMBNAIL_SIZE="$(get_thumbnail_size "$SIZE_NAME")"
-CACHE_DIR="$HOME/.cache/thumbnails/$SIZE_NAME"
+# Where the shell actually looks. Qt's GenericCacheLocation -- which is what
+# ThumbnailImage builds its path from -- is ~/Library/Caches on macOS and does
+# not honour XDG_CACHE_HOME there. Writing the Linux path meant this script
+# generated a full set of thumbnails into ~/.cache that the shell never read,
+# so every tile stayed blank no matter how often it ran.
+if [ "$(uname)" = "Darwin" ]; then
+    CACHE_DIR="$HOME/Library/Caches/thumbnails/$SIZE_NAME"
+else
+    CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/thumbnails/$SIZE_NAME"
+fi
 
 if [ -z "$MODE" ] || [ -z "$TARGET" ]; then
     usage

@@ -22,6 +22,12 @@ MouseArea {
         Wallpapers.generateThumbnail(thumbnailSizeName);
     }
 
+    // Also on open, not just on navigate. The selector is built fresh each time
+    // it is shown, and generation only ever ran from onDirectoryChanged -- so
+    // opening it on the folder you were already in generated nothing and every
+    // tile stayed blank.
+    Component.onCompleted: root.updateThumbnails()
+
     Connections {
         target: Wallpapers
         function onDirectoryChanged() {
