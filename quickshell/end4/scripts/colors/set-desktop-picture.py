@@ -102,6 +102,12 @@ def self_check():
     print("self-check ok")
 
 
+def pids_named(name):
+    """The pids currently running under `name`, as a set."""
+    out = subprocess.run(["pgrep", "-x", name], capture_output=True, text=True)
+    return {int(p) for p in out.stdout.split() if p.isdigit()}
+
+
 def main():
     if sys.argv[1:2] == ["--self-check"]:
         return self_check()
@@ -122,11 +128,20 @@ def main():
 
     # Stop the agent before writing. It holds the store in memory and writes it
     # back out on the way down, which would put the old picture straight back.
+    #
+    # Watch the pids we actually killed, not the name. launchd runs this agent
+    # on demand and restarts it within milliseconds, so "is anything called
+    # WallpaperAgent running" is answered by the replacement and never goes
+    # false -- the old loop therefore ran all fifty iterations every single
+    # time, a flat five seconds on every wallpaper change. The pids we signalled
+    # do go away, and a respawn gets a new one.
+    doomed = pids_named("WallpaperAgent")
     subprocess.run(["killall", "WallpaperAgent"], capture_output=True)
-    for _ in range(50):
-        if subprocess.run(["pgrep", "-x", "WallpaperAgent"], capture_output=True).returncode != 0:
+    deadline = time.monotonic() + 1.5
+    while doomed and time.monotonic() < deadline:
+        if not (pids_named("WallpaperAgent") & doomed):
             break
-        time.sleep(0.1)
+        time.sleep(0.02)
 
     INDEX.write_bytes(plistlib.dumps(store))
 
