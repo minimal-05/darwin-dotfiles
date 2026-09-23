@@ -14,15 +14,37 @@ yabai -m signal --add event=dock_did_restart action="sudo -n yabai --load-sa"
 # same reason skhdrc's and karabiner.json's qs-ipc calls are.
 [ -x "$HOME/Projects/quickshell-macos/bin/qs-yabai-signals" ] && "$HOME/Projects/quickshell-macos/bin/qs-yabai-signals" install
 
-yabai -m config focus_follows_mouse autofocus \
+# layout and top_padding were dropped by "Trim the non-shell configs" (273e1a1),
+# which left yabai on its float default: nothing tiled and nothing resized after
+# a restart. They only looked fine because the running yabai still held the
+# values in memory -- and the one key that would have exposed it, super o/n, was
+# pointed at the wrong launchd label and did nothing.
+#
+# top_padding matches the gap YabaiBarSpace.qml applies at runtime (its `gap`,
+# 8), so a yabai restart lands on the value the shell would set anyway instead
+# of drifting to 0 until something else changes.
+yabai -m config layout bsp \
+  top_padding 8 \
+  focus_follows_mouse autofocus \
   window_zoom_persist off \
   window_shadow float \
   window_opacity off \
-  external_bar all:40:0 \
   bottom_padding 8 \
   left_padding 8 \
   right_padding 8 \
   window_gap 8
+
+# external_bar is not a constant like the paddings: it is whatever the shell's
+# panels reserve right now, and the shell may be hidden (super y), in which case
+# a hardcoded bar-height strip would leave a dead gap no window can use. yabai
+# forgot the real value when it restarted, and only the shell still knows it --
+# so ask. The fallback covers a desktop with no shell up yet, which is what this
+# line always used to seed.
+# The grep is the guard, not decoration: with no shell up, qs-ipc reports "No
+# running instances ..." on stdout, not stderr, and yabai will happily swallow
+# that as a value and land on `off:0:0`. Only a well-formed strip is accepted.
+bar_strip="$("$HOME/Projects/quickshell-macos/bin/qs-ipc" yabai externalBar 2>/dev/null | grep -E '^all:[0-9]+:[0-9]+$')"
+yabai -m config external_bar "${bar_strip:-all:40:0}"
 
 # Exclude problematic apps from being managed:
 yabai -m rule --add app="^(LuLu|Calculator|Autodesk Fusion|Fusion|Software Update|Exam.net|Dictionary|VLC|System Preferences|System Settings|zoom.us|Photo Booth|Archive Utility|Python|LibreOffice|App Store|Steam|Alfred|Activity Monitor|Simulator|Tailscale|Karabiner-Elements)$" manage=off
@@ -32,7 +54,20 @@ yabai -m rule --add label="About This Mac" app="System Information" title="About
 yabai -m rule --add label="Select file to save to" app="^Inkscape$" title="Select file to save to" manage=off
 # Shell surfaces are overlays and the settings window is a dialog -- neither
 # belongs in the tiling layout.
-yabai -m rule --add label=quickshell app="^quickshell$" manage=off
+#
+# yabai matches app= case-sensitively against the name the bundle reports,
+# not the process name: Settings comes up as "Quickshell" (Quickshell.app)
+# and the finder/preview surfaces as "quickshell-engine" (Files.app). The
+# old ^quickshell$ matched neither, so every one of them got tiled.
+yabai -m rule --add label=quickshell app="^[Qq]uickshell" manage=off
+
+# A rule only ever applies to windows created after it, so restarting yabai
+# (hyper+N does exactly that) left any Settings window or picker that was
+# already open tiled until it was closed and reopened. Float whatever is
+# already up, so a restart cannot capture them.
+yabai -m query --windows 2>/dev/null \
+  | jq -r '.[] | select((.app|test("^[Qq]uickshell")) and (."is-floating"|not)) | .id' 2>/dev/null \
+  | while read -r wid; do yabai -m window "$wid" --toggle float >/dev/null 2>&1; done
 
 yabai -m rule --apply
 
