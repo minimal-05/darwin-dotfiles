@@ -1,6 +1,7 @@
 pragma Singleton
 
 import qs.modules.common
+import qs.services
 import QtQuick
 import Quickshell
 import Quickshell.Wayland
@@ -59,6 +60,11 @@ Singleton {
             // populated. An untitled "quickshell-engine" toplevel is the
             // invisible root surface every quickshell process starts with,
             // not a real window, so it still falls through to ignoredRegexes.
+            // A hidden app (Cmd+H, or study mode) is not on screen, so it does
+            // not belong in the dock's running list either. Pins are added
+            // separately above and are unaffected.
+            if (HyprlandData.clientForToplevel(toplevel)?.hidden) continue;
+
             const isMiniApp = toplevel.appId.toLowerCase() === "quickshell-engine" && toplevel.title.length > 0;
             const appId = isMiniApp ? toplevel.title : toplevel.appId;
             if (!isMiniApp && ignoredRegexes.some(re => re.test(appId))) continue;
