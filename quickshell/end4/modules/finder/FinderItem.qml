@@ -2,6 +2,7 @@ import qs.modules.common
 import qs.modules.common.widgets
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 
 /**
  * One row in the file list: type icon, name, size, modified date.
@@ -13,12 +14,16 @@ Rectangle {
     required property int index
     property bool selected: false
     property bool showSize: true
+    property bool showType: true
     property bool showDate: true
+    // The paths a drag starting on this row should carry -- the whole
+    // selection when this row is part of one, else just this row.
+    property var dragPaths: [modelData.path]
 
     readonly property string path: root.modelData.path
     readonly property bool isDir: root.modelData.isDir
 
-    signal clicked
+    signal clicked(int modifiers)
     signal activated
     signal contextRequested(real sx, real sy)
 
@@ -41,11 +46,12 @@ Rectangle {
 
     // Dragging out to another application. text/uri-list is the mime type Qt
     // hands to macOS as a file drag, so the drop lands wherever a Finder drag
-    // would. Automatic means a real platform drag rather than a QML-internal one.
+    // would -- one URI per line carries the whole multi-selection in one drag.
+    // Automatic means a real platform drag rather than a QML-internal one.
     Drag.dragType: Drag.Automatic
     Drag.supportedActions: Qt.CopyAction
     Drag.mimeData: ({
-            "text/uri-list": "file://" + encodeURI(root.modelData.path)
+            "text/uri-list": root.dragPaths.map(p => "file://" + encodeURI(p)).join("\r\n")
         })
 
     Behavior on color {
@@ -62,11 +68,34 @@ Rectangle {
         anchors.rightMargin: 12
         spacing: 12
 
-        MaterialSymbol {
-            text: root.modelData.icon
-            iconSize: Appearance.font.pixelSize.huge
-            fill: root.isDir ? 1 : 0
-            color: root.selected ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colPrimary
+        Item {
+            Layout.preferredWidth: 26
+            Layout.preferredHeight: 26
+
+            // A real miniature for images and apps; the type glyph otherwise.
+            // ponytail: no QuickLook previews for pdfs and video here either --
+            // see the tile view's note on why that stays a subprocess too far.
+            Image {
+                id: thumbnail
+
+                anchors.fill: parent
+                visible: (root.modelData.isImage || root.modelData.isApp) && status === Image.Ready
+                source: root.modelData.isImage ? `file://${root.modelData.path}` : root.modelData.isApp ? Quickshell.iconPath(root.modelData.path) : ""
+                sourceSize.width: 52
+                sourceSize.height: 52
+                fillMode: Image.PreserveAspectFit
+                asynchronous: true
+                cache: true
+            }
+
+            MaterialSymbol {
+                anchors.centerIn: parent
+                visible: !thumbnail.visible
+                text: root.modelData.icon
+                iconSize: Appearance.font.pixelSize.huge
+                fill: root.isDir ? 1 : 0
+                color: root.selected ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colPrimary
+            }
         }
 
         StyledText {
@@ -81,6 +110,15 @@ Rectangle {
             text: root.isDir ? "" : root.humanSize(root.modelData.size)
             horizontalAlignment: Text.AlignRight
             Layout.preferredWidth: 66
+            color: Appearance.colors.colSubtext
+            font.pixelSize: Appearance.font.pixelSize.smaller
+        }
+
+        StyledText {
+            visible: root.showType
+            text: root.modelData.type ?? ""
+            elide: Text.ElideRight
+            Layout.preferredWidth: 104
             color: Appearance.colors.colSubtext
             font.pixelSize: Appearance.font.pixelSize.smaller
         }
@@ -132,12 +170,11 @@ Rectangle {
             if (mouse.button === Qt.RightButton) {
                 // Scene coordinates: the menu overlay fills the window.
                 const at = root.mapToItem(null, mouse.x, mouse.y);
-                root.clicked();
                 root.contextRequested(at.x, at.y);
                 return;
             }
             if (!mouseArea.dragStarted)
-                root.clicked();
+                root.clicked(mouse.modifiers);
         }
         onDoubleClicked: root.activated()
     }

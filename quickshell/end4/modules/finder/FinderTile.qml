@@ -1,11 +1,14 @@
 import qs.modules.common
+import qs.modules.common.functions
 import qs.modules.common.widgets
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
+import Quickshell.Io
 
 /**
- * One tile in icon view: a thumbnail for images, the type glyph for everything
- * else, and the name underneath.
+ * One tile in icon view: a thumbnail for images and apps, the type glyph for
+ * everything else, and the name underneath.
  */
 Rectangle {
     id: root
@@ -13,11 +16,22 @@ Rectangle {
     required property var modelData
     required property int index
     property bool selected: false
+    // The paths a drag starting on this tile should carry -- the whole
+    // selection when this tile is part of one, else just this tile.
+    property var dragPaths: [modelData.path]
 
     readonly property string path: root.modelData.path
     readonly property bool isDir: root.modelData.isDir
 
-    signal clicked
+    // Everything that is not already covered by a raster thumbnail or an app
+    // icon -- pdfs, video, audio, office documents, source files -- can still
+    // have a QuickLook preview.
+    readonly property bool canPreview: !root.isDir && !root.modelData.isImage && !root.modelData.isApp
+    // Keyed by path *and* mtime, so editing a file supersedes its preview
+    // instead of showing a stale one forever.
+    readonly property string previewPath: root.canPreview ? `${Directories.finderThumbs}/${Qt.md5(root.modelData.path + root.modelData.modified)}.png` : ""
+
+    signal clicked(int modifiers)
     signal activated
     signal contextRequested(real sx, real sy)
 
@@ -27,7 +41,7 @@ Rectangle {
     Drag.dragType: Drag.Automatic
     Drag.supportedActions: Qt.CopyAction
     Drag.mimeData: ({
-            "text/uri-list": "file://" + encodeURI(root.modelData.path)
+            "text/uri-list": root.dragPaths.map(p => "file://" + encodeURI(p)).join("\r\n")
         })
 
     Behavior on color {
@@ -40,25 +54,24 @@ Rectangle {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 6
-        spacing: 4
+        anchors.margins: 4
+        spacing: 2
 
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
 
-            // Real thumbnails for images only.
+            // Real thumbnails for images, the real icon for apps.
             // ponytail: no QuickLook previews for pdfs and video -- qlmanage is a
             // subprocess per file, and a folder of them would cost more than the
             // entire window does. Worth adding behind a cache if it's missed.
             Image {
                 id: thumbnail
 
-                anchors.centerIn: parent
-                width: Math.min(implicitWidth, parent.width)
-                height: Math.min(implicitHeight, parent.height)
-                visible: root.modelData.isImage && status === Image.Ready
-                source: root.modelData.isImage ? `file://${root.modelData.path}` : ""
+                anchors.fill: parent
+                anchors.margins: 2
+                visible: (root.modelData.isImage || root.modelData.isApp) && status === Image.Ready
+                source: root.modelData.isImage ? `file://${root.modelData.path}` : root.modelData.isApp ? Quickshell.iconPath(root.modelData.path) : ""
                 sourceSize.width: 128
                 sourceSize.height: 128
                 fillMode: Image.PreserveAspectFit
@@ -66,11 +79,55 @@ Rectangle {
                 cache: true
             }
 
+            // QuickLook preview. qlmanage is the thumbnailer Finder itself uses,
+            // so a pdf, a video, a Keynote deck or a .c file all get a real
+            // preview without this shell knowing any of those formats.
+            Image {
+                id: preview
+
+                anchors.fill: parent
+                anchors.margins: 2
+                visible: root.canPreview && status === Image.Ready
+                source: previewProc.ready ? `file://${root.previewPath}` : ""
+                sourceSize.width: 128
+                sourceSize.height: 128
+                fillMode: Image.PreserveAspectFit
+                asynchronous: true
+                cache: true
+            }
+
+            // ponytail: one subprocess per file, so it is gated twice -- only
+            // for tiles that exist (the GridView only builds visible ones) and
+            // only after the tile has held still for 200ms, so flinging through
+            // a big folder does not spawn a process per row. The png is cached
+            // on disk, so a file is only ever rendered once.
+            Timer {
+                running: root.canPreview && !previewProc.ready
+                interval: 200
+                onTriggered: previewProc.running = true
+            }
+
+            Process {
+                id: previewProc
+
+                property bool ready: false
+                command: ["bash", "-c", `out='${StringUtils.shellSingleQuoteEscape(root.previewPath)}'; `
+                    + `[ -f "$out" ] && exit 0; `
+                    + `mkdir -p '${StringUtils.shellSingleQuoteEscape(Directories.finderThumbs)}'; `
+                    + `tmp=$(mktemp -d); `
+                    + `qlmanage -t -s 256 -o "$tmp" '${StringUtils.shellSingleQuoteEscape(root.modelData.path)}' >/dev/null 2>&1; `
+                    + `f=$(find "$tmp" -name '*.png' -maxdepth 1 | head -1); `
+                    + `[ -n "$f" ] && mv "$f" "$out"; `
+                    + `rm -rf "$tmp"; `
+                    + `[ -f "$out" ]`]
+                onExited: exitCode => previewProc.ready = (exitCode === 0)
+            }
+
             MaterialSymbol {
                 anchors.centerIn: parent
-                visible: !thumbnail.visible
+                visible: !thumbnail.visible && !preview.visible
                 text: root.modelData.icon
-                iconSize: 44
+                iconSize: 56
                 fill: root.isDir ? 1 : 0
                 color: root.selected ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colPrimary
             }
@@ -78,14 +135,14 @@ Rectangle {
 
         StyledText {
             Layout.fillWidth: true
-            Layout.preferredHeight: 30
+            Layout.preferredHeight: 24
             text: root.modelData.name
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignTop
             wrapMode: Text.Wrap
             elide: Text.ElideMiddle
             maximumLineCount: 2
-            font.pixelSize: Appearance.font.pixelSize.smaller
+            font.pixelSize: Appearance.font.pixelSize.smallest
             color: root.selected ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1
         }
     }
@@ -126,12 +183,11 @@ Rectangle {
             if (mouse.button === Qt.RightButton) {
                 // Scene coordinates: the menu overlay fills the window.
                 const at = root.mapToItem(null, mouse.x, mouse.y);
-                root.clicked();
                 root.contextRequested(at.x, at.y);
                 return;
             }
             if (!mouseArea.dragStarted)
-                root.clicked();
+                root.clicked(mouse.modifiers);
         }
         onDoubleClicked: root.activated()
     }

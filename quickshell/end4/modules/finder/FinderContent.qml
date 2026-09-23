@@ -22,13 +22,65 @@ Item {
     signal picked(path: string)
 
     readonly property string home: FileUtils.trimFileProtocol(Directories.home).replace(/\/+$/, "")
+    readonly property string wallpapersDir: `${root.place(Directories.pictures)}/Wallpapers`
 
     // Navigation state lives here rather than in whatever hosts the view, so the
-    // standalone app and any in-shell host share one implementation.
-    property string currentPath: root.home
+    // standalone app and any in-shell host share one implementation. A picker
+    // starts in the wallpapers folder -- Home would make you go find it
+    // yourself every time you meant to just choose a wallpaper.
+    property string currentPath: root.pickMode.length > 0 ? root.wallpapersDir : root.home
     property var backStack: []
     property var fwdStack: []
     property bool showHidden: false
+
+    // Multi-selection. An ordered array of paths acting as a set, plus the
+    // index a shift-click range extends from.
+    property var selectedPaths: []
+    property int selectionAnchor: -1
+
+    function isSelected(path: string): bool {
+        return root.selectedPaths.includes(path);
+    }
+
+    function selectOnly(index: int): void {
+        root.selectionAnchor = index;
+        const e = root.entries[index];
+        root.selectedPaths = e ? [e.path] : [];
+    }
+
+    function toggleSelect(index: int): void {
+        root.selectionAnchor = index;
+        const e = root.entries[index];
+        if (!e)
+            return;
+        root.selectedPaths = root.selectedPaths.includes(e.path) ? root.selectedPaths.filter(p => p !== e.path) : [...root.selectedPaths, e.path];
+    }
+
+    function selectRange(index: int): void {
+        if (root.selectionAnchor < 0) {
+            root.selectOnly(index);
+            return;
+        }
+        const lo = Math.min(root.selectionAnchor, index);
+        const hi = Math.max(root.selectionAnchor, index);
+        root.selectedPaths = root.entries.slice(lo, hi + 1).map(e => e.path);
+    }
+
+    function clearSelection(): void {
+        root.selectedPaths = [];
+        root.selectionAnchor = -1;
+    }
+
+    // The one place that turns a click's modifier keys into a selection change,
+    // so list and grid delegates only have to report what was pressed.
+    function selectFromClick(index: int, modifiers: int): void {
+        if (modifiers & Qt.ShiftModifier)
+            root.selectRange(index);
+        else if (modifiers & Qt.ControlModifier) // Command on macOS -- Qt swaps the names.
+            root.toggleSelect(index);
+        else
+            root.selectOnly(index);
+    }
 
     function place(path: string): string {
         return FileUtils.trimFileProtocol(path).replace(/\/+$/, "");
@@ -80,13 +132,25 @@ Item {
             Quickshell.execDetached(["open", path]);
     }
 
-    // Escape leaves pick mode without choosing. The views do not accept it, so
-    // it reaches this parent through the focus chain.
+    // Escape backs out one level at a time: cancel a pick, else drop the
+    // selection. The views do not accept it, so it reaches this parent through
+    // the focus chain.
     Keys.onEscapePressed: event => {
-        if (root.pickMode.length === 0)
-            return;
-        root.pickMode = "";
-        event.accepted = true;
+        if (root.pickMode.length > 0) {
+            root.pickMode = "";
+            event.accepted = true;
+        } else if (root.selectedPaths.length > 0) {
+            root.clearSelection();
+            event.accepted = true;
+        }
+    }
+
+    Shortcut {
+        sequences: [StandardKey.SelectAll]
+        onActivated: {
+            root.selectedPaths = root.entries.map(e => e.path);
+            root.selectionAnchor = root.entries.length - 1;
+        }
     }
 
     readonly property var imageExtensions: ["png", "jpg", "jpeg", "gif", "webp", "heic", "bmp", "tiff", "icns"]
@@ -114,6 +178,27 @@ Item {
         if (["txt", "md", "rtf", "log"].includes(ext))
             return "description";
         return "draft";
+    }
+
+    // The word shown in the list's Type column. Mirrors iconFor's buckets so the
+    // glyph and the word can never disagree, and falls back to "<EXT> file" the
+    // way Finder does for anything it has no name for.
+    function typeFor(name: string, isDir: bool): string {
+        if (name.endsWith(".app"))
+            return Translation.tr("Application");
+        if (isDir)
+            return Translation.tr("Folder");
+        const dot = name.lastIndexOf(".");
+        if (dot <= 0)
+            return Translation.tr("Document");
+        const ext = name.slice(dot + 1).toLowerCase();
+        const kind = (root.imageExtensions.includes(ext) || ext === "svg") ? Translation.tr("%1 image")
+            : ["mp4", "mov", "mkv", "webm", "avi", "m4v"].includes(ext) ? Translation.tr("%1 video")
+            : ["mp3", "flac", "wav", "m4a", "aac", "ogg", "opus"].includes(ext) ? Translation.tr("%1 audio")
+            : ["zip", "tar", "gz", "bz2", "xz", "7z", "rar", "dmg"].includes(ext) ? Translation.tr("%1 archive")
+            : ext === "pdf" ? Translation.tr("%1 document")
+            : Translation.tr("%1 file");
+        return kind.arg(ext.toUpperCase());
     }
 
     readonly property var places: [
@@ -263,9 +348,11 @@ Item {
                 size: folderModel.get(i, "fileSize"),
                 modified: folderModel.get(i, "fileModified"),
                 icon: root.iconFor(name, isDir),
+                type: root.typeFor(name, isDir),
                 // Only real raster images get a thumbnail; anything else would
                 // mean a QuickLook subprocess per file.
                 isImage: !isDir && root.imageExtensions.includes(ext),
+                isApp: name.endsWith(".app"),
             });
         }
         return out;
@@ -274,6 +361,7 @@ Item {
     onEntriesChanged: {
         listView.currentIndex = root.entries.length > 0 ? 0 : -1;
         gridView.currentIndex = listView.currentIndex;
+        root.clearSelection();
     }
 
     // Breakpoints. The window resizes down to a genuinely small size, so each
@@ -283,6 +371,7 @@ Item {
     readonly property bool showSidebar: !root.sidebarHidden && root.width >= 470
     readonly property bool showSearch: root.width >= 560
     readonly property bool showSize: root.width >= 430
+    readonly property bool showType: root.width >= 520
     readonly property bool showDate: root.width >= 610
 
     RowLayout {
@@ -491,12 +580,22 @@ Item {
 
                     delegate: FinderItem {
                         width: listView.width
-                        selected: ListView.isCurrentItem
+                        selected: root.isSelected(modelData.path)
                         showSize: root.showSize
+                        showType: root.showType
                         showDate: root.showDate
-                        onClicked: listView.currentIndex = index
+                        dragPaths: root.isSelected(modelData.path) && root.selectedPaths.length > 1 ? root.selectedPaths : [modelData.path]
+                        onClicked: modifiers => {
+                            listView.currentIndex = index;
+                            root.selectFromClick(index, modifiers);
+                        }
                         onActivated: root.activate(path, isDir)
-                        onContextRequested: (sx, sy) => contextMenu.popup(sx, sy, modelData)
+                        onContextRequested: (sx, sy) => {
+                            listView.currentIndex = index;
+                            if (!root.isSelected(modelData.path))
+                                root.selectOnly(index);
+                            contextMenu.popup(sx, sy, root.entries.filter(e => root.isSelected(e.path)));
+                        }
                     }
 
                     Keys.onPressed: event => {
@@ -528,10 +627,19 @@ Item {
                     delegate: FinderTile {
                         width: gridView.cellWidth - 6
                         height: gridView.cellHeight - 6
-                        selected: GridView.isCurrentItem
-                        onClicked: gridView.currentIndex = index
+                        selected: root.isSelected(modelData.path)
+                        dragPaths: root.isSelected(modelData.path) && root.selectedPaths.length > 1 ? root.selectedPaths : [modelData.path]
+                        onClicked: modifiers => {
+                            gridView.currentIndex = index;
+                            root.selectFromClick(index, modifiers);
+                        }
                         onActivated: root.activate(path, isDir)
-                        onContextRequested: (sx, sy) => contextMenu.popup(sx, sy, modelData)
+                        onContextRequested: (sx, sy) => {
+                            gridView.currentIndex = index;
+                            if (!root.isSelected(modelData.path))
+                                root.selectOnly(index);
+                            contextMenu.popup(sx, sy, root.entries.filter(e => root.isSelected(e.path)));
+                        }
                     }
 
                     Keys.onPressed: event => {
