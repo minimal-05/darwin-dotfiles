@@ -6,7 +6,8 @@
                     {
                         "manipulators": [
                             {
-                                "description": "Change left_control to command+control+option; tap alone opens the overview.",
+                                "description": "Built-in keyboard: left_control is Super; tap alone opens the overview.",
+                                "type": "basic",
                                 "from": {
                                     "key_code": "left_control",
                                     "modifiers": {
@@ -24,10 +25,99 @@
                                         ]
                                     }
                                 ],
-                                "type": "basic",
                                 "to_if_alone": [
                                     {
                                         "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-ipc search workspacesToggle"
+                                    }
+                                ],
+                                "conditions": [
+                                    {
+                                        "type": "device_if",
+                                        "identifiers": [
+                                            {
+                                                "is_built_in_keyboard": true
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "description": "External keyboard: caps_lock is Super; tap alone opens the overview.",
+                                "type": "basic",
+                                "from": {
+                                    "key_code": "caps_lock",
+                                    "modifiers": {
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "key_code": "left_command",
+                                        "modifiers": [
+                                            "left_control",
+                                            "left_option"
+                                        ]
+                                    }
+                                ],
+                                "to_if_alone": [
+                                    {
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-ipc search workspacesToggle"
+                                    }
+                                ],
+                                "conditions": [
+                                    {
+                                        "type": "device_unless",
+                                        "identifiers": [
+                                            {
+                                                "is_built_in_keyboard": true
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "description": "Built-in keyboard: caps_lock is a real control.",
+                                "type": "basic",
+                                "from": {
+                                    "key_code": "caps_lock",
+                                    "modifiers": {
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "key_code": "left_control"
+                                    }
+                                ],
+                                "conditions": [
+                                    {
+                                        "type": "device_if",
+                                        "identifiers": [
+                                            {
+                                                "is_built_in_keyboard": true
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "description": "right_command is a real control on any keyboard.",
+                                "type": "basic",
+                                "from": {
+                                    "key_code": "right_command",
+                                    "modifiers": {
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "key_code": "left_control"
                                     }
                                 ]
                             }
@@ -279,28 +369,7 @@
             },
             "name": "Default profile",
             "selected": true,
-            "simple_modifications": [
-                {
-                    "from": {
-                        "key_code": "caps_lock"
-                    },
-                    "to": [
-                        {
-                            "key_code": "left_control"
-                        }
-                    ]
-                },
-                {
-                    "from": {
-                        "key_code": "right_command"
-                    },
-                    "to": [
-                        {
-                            "key_code": "left_control"
-                        }
-                    ]
-                }
-            ],
+            "simple_modifications": [],
             "virtual_hid_keyboard": {
                 "keyboard_type_v2": "jis"
             }
