@@ -79,6 +79,12 @@ Scope {
                 active: {
                     if (!Config.options.sidebar.cornerOpen.enable) return false;
                     if (cornerPanelWindow.fullscreen) return false;
+                    // Not while a region is being selected. These corner panels sit
+                    // at the same layer as the selector, so whichever corner has the
+                    // sidebar-open region masked in swallowed the press and the
+                    // selector -- covering the whole screen -- just ignored it. That
+                    // is why a screenshot started from a corner looked like a freeze.
+                    if (GlobalStates.regionSelectorOpen) return false;
                     return (Config.options.sidebar.cornerOpen.bottom == cornerWidget.isBottom);
                 }
                 anchors {

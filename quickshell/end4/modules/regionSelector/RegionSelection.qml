@@ -27,6 +27,23 @@ PanelWindow {
         bottom: true
     }
 
+    // One pixel past every screen edge.
+    //
+    // AppKit rect tests are exclusive at maxY, and a window sized exactly to the
+    // screen puts the topmost screen row *on* that boundary -- CG y=0 maps to
+    // Cocoa y=height, which is outside the frame. A press on the very top row
+    // therefore reached no window at all: the overlay stayed up ignoring it,
+    // which is the "screenshot from the edge freezes" report. Measured: y=0
+    // failed, y=1 worked. Bleeding the window one pixel past each edge makes
+    // every real screen pixel interior. snip() shifts back before capturing.
+    readonly property int edgeBleed: 1
+    margins {
+        top: -root.edgeBleed
+        bottom: -root.edgeBleed
+        left: -root.edgeBleed
+        right: -root.edgeBleed
+    }
+
     // Modes
     // TODO: Ask: sidebar AI
     enum SnipAction { Copy, Edit, Search, CharRecognition, Record, RecordWithSound } 
@@ -64,7 +81,15 @@ PanelWindow {
 
     // Screen & interaction vars
     readonly property HyprlandMonitor hyprlandMonitor: Hyprland.monitorFor(screen)
-    readonly property real monitorScale: hyprlandMonitor.scale
+    // Hyprland's monitor scale is a hardcoded 1.0 in the macOS shim, and it was
+    // never the right number here anyway: the reference shot is written in
+    // physical pixels, and one QML unit is devicePixelRatio of them -- the
+    // display's own ratio with QT_SCALE_FACTOR already folded into it.
+    readonly property real monitorScale: root.screen.devicePixelRatio
+    // yabai answers in macOS points; the overlay draws in QML units, and
+    // QT_SCALE_FACTOR is the difference. Undone, a window's box drifts by 5% of
+    // however far that window sits from the origin.
+    readonly property real pointScale: 1 / ScreenshotAction.uiScale
     readonly property real monitorOffsetX: hyprlandMonitor.x
     readonly property real monitorOffsetY: hyprlandMonitor.y
     property int activeWorkspaceId: hyprlandMonitor.activeWorkspace?.id ?? 0
@@ -85,8 +110,8 @@ PanelWindow {
         root.layerRegions
     ).map(window => {
         return {
-            at: [window.at[0] - root.monitorOffsetX, window.at[1] - root.monitorOffsetY],
-            size: [window.size[0], window.size[1]],
+            at: [(window.at[0] - root.monitorOffsetX) * root.pointScale, (window.at[1] - root.monitorOffsetY) * root.pointScale],
+            size: [window.size[0] * root.pointScale, window.size[1] * root.pointScale],
             class: window.class,
             title: window.title,
         }
@@ -212,18 +237,35 @@ PanelWindow {
         root.visible = true;
     }
 
+    // The detector measures the reference shot, so its bounds and its answers are
+    // both in that image's physical pixels -- which is not what anything else
+    // here speaks. Sizes go in scaled up; regions come back scaled down, before
+    // the filter compares them against window boxes that are already QML units.
     Process {
         id: imageDetectionProcess
         command: ["bash", "-c", `${Directories.scriptPath}/images/find_regions.py ` 
             + `--hyprctl ` 
             + `--image '${StringUtils.shellSingleQuoteEscape(root.screenshotPath)}' ` 
-            + `--max-width ${Math.round(root.screen.width * root.falsePositivePreventionRatio)} ` 
-            + `--max-height ${Math.round(root.screen.height * root.falsePositivePreventionRatio)} `]
+            + `--max-width ${Math.round(root.screen.width * root.monitorScale * root.falsePositivePreventionRatio)} ` 
+            + `--max-height ${Math.round(root.screen.height * root.monitorScale * root.falsePositivePreventionRatio)} `]
         stdout: StdioCollector {
             id: imageDimensionCollector
             onStreamFinished: {
+                // The detector is a venv script: a missing interpreter or a
+                // warning on stdout is a parse error, not a region list.
+                let detected;
+                try {
+                    detected = JSON.parse(imageDimensionCollector.text);
+                } catch (e) {
+                    console.warn("[Region Selector] Content detection returned no usable regions.");
+                    return;
+                }
+                if (!Array.isArray(detected)) return;
                 imageRegions = RegionFunctions.filterImageRegions(
-                    JSON.parse(imageDimensionCollector.text),
+                    detected.map(region => ({
+                        at: [region.at[0] / root.monitorScale, region.at[1] / root.monitorScale],
+                        size: [region.size[0] / root.monitorScale, region.size[1] / root.monitorScale],
+                    })),
                     root.windowRegions
                 );
             }
@@ -255,9 +297,19 @@ PanelWindow {
     function snip() {
         // Validity check
         if (root.regionWidth <= 0 || root.regionHeight <= 0) {
+            // The return matters: without it this dismissed and then carried on
+            // to run screencapture with a 0x0 rect (which it rejects), and for a
+            // recording it went on to set phase = Post on a selector that had
+            // already been dismissed -- an overlay stuck on screen taking the
+            // pointer. A press right on a screen edge produces exactly this.
             console.warn("[Region Selector] Invalid region size, skipping snip.");
             root.dismiss();
+            return;
         }
+
+        // Window coordinates -> screen coordinates (see edgeBleed above).
+        root.regionX -= root.edgeBleed;
+        root.regionY -= root.edgeBleed;
 
         // Clamp region to screen bounds
         root.regionX = Math.max(0, Math.min(root.regionX, root.screen.width - root.regionWidth));
@@ -270,8 +322,6 @@ PanelWindow {
             root.action = root.mouseButton === Qt.RightButton ? RegionSelection.SnipAction.Edit : RegionSelection.SnipAction.Copy;
         }
         
-        const screenshotDir = Config.options.screenSnip.savePath !== "" ? //
-            Config.options.screenSnip.savePath : "";
         var screenshotAction = root.getScreenshotAction();
         const command = ScreenshotAction.getCommand(
             root.regionX * root.monitorScale, //
@@ -280,7 +330,7 @@ PanelWindow {
             root.regionHeight * root.monitorScale, //
             root.screenshotPath, //
             screenshotAction, //
-            screenshotDir
+            root.monitorScale
         )
         Quickshell.execDetached(command);
         if (root.action == RegionSelection.SnipAction.Record || root.action == RegionSelection.SnipAction.RecordWithSound) {
@@ -291,12 +341,20 @@ PanelWindow {
         }
     }
 
-    // Only clickable in Selection phase
-    mask: Region {
-        item: switch(root.phase) {
-            case RegionSelection.Phase.Select: return mouseArea;
-            case RegionSelection.Phase.Post: return null;
-        }
+    // Only clickable in Selection phase.
+    //
+    // No mask at all while selecting, rather than one covering the whole window.
+    // The cocoa backend gates a masked panel's input on a 50ms poll testing the
+    // pointer against the mask, and that test reads "outside" at the exact screen
+    // edges -- so pressing on an edge silently disabled the panel's input, clicks
+    // fell through to whatever was underneath, and a full-screen overlay sat there
+    // ignoring the pointer. That is the "screenshot from the edge freezes the
+    // machine" symptom. Unmasked, the panel takes input over its whole frame,
+    // edges included. Post keeps an empty mask so it stays click-through.
+    mask: root.phase === RegionSelection.Phase.Post ? postPhaseMask : null
+
+    Region {
+        id: postPhaseMask
     }
 
     ScreencopyView { // For freezing
