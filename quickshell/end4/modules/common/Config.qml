@@ -561,6 +561,69 @@ Singleton {
             property JsonObject wallpaperSelector: JsonObject {
                 property bool useSystemFileDialog: false
             }
+
+            property JsonObject studyMode: JsonObject {
+                property int durationMinutes: 50
+                property int dailyGoalMinutes: 60
+                // Apps (process names) the focus watcher counts as studying, on
+                // top of Firefox, Finder and the shell. Anything else in front
+                // for a minute is a warning.
+                property list<string> studyApps: ["Preview", "Notes", "Calculator", "Pages", "Keynote", "Numbers", "Microsoft Word", "Microsoft PowerPoint", "Microsoft Excel", "Microsoft OneNote", "zoom.us"]
+                // Firefox WebsiteFilter exception patterns. Everything not
+                // matched here is blocked for the whole session, so this list is
+                // the entire definition of "school related" -- edit it to match
+                // your classes. An empty list is refused rather than honoured:
+                // blocking the whole web is a lockout, not a study session.
+                property list<string> allowedSites: [
+                    "*://*.edsby.com/*",
+                    "*://*.instructure.com/*",
+                    "*://*.schoology.com/*",
+                    "*://*.classlink.com/*",
+                    "*://*.blackboard.com/*",
+                    "*://*.moodle.org/*",
+                    "*://*.turnitin.com/*",
+                    "*://*.collegeboard.org/*",
+                    "*://*.college-board.org/*",
+                    "*://*.google.com/*",
+                    "*://*.googleusercontent.com/*",
+                    "*://*.gstatic.com/*",
+                    "*://*.googleapis.com/*",
+                    "*://*.office.com/*",
+                    "*://*.office365.com/*",
+                    "*://*.microsoft.com/*",
+                    "*://*.microsoftonline.com/*",
+                    "*://*.sharepoint.com/*",
+                    "*://*.live.com/*",
+                    "*://*.wikipedia.org/*",
+                    "*://*.wikimedia.org/*",
+                    "*://*.britannica.com/*",
+                    "*://*.merriam-webster.com/*",
+                    "*://*.dictionary.com/*",
+                    "*://*.jstor.org/*",
+                    "*://*.khanacademy.org/*",
+                    "*://*.desmos.com/*",
+                    "*://*.geogebra.org/*",
+                    "*://*.wolframalpha.com/*",
+                    "*://*.symbolab.com/*",
+                    "*://*.overleaf.com/*",
+                    "*://*.coursera.org/*",
+                    "*://*.edx.org/*",
+                    "*://*.quizlet.com/*",
+                    "*://*.github.com/*",
+                    "*://*.githubusercontent.com/*",
+                    "*://*.w3schools.com/*",
+                    "*://*.python.org/*",
+                    "*://*.oracle.com/*",
+                    "*://*.stackoverflow.com/*",
+                    "*://*.stackexchange.com/*",
+                    "*://*.replit.com/*",
+                    "*://*.zoom.us/*",
+                    "*://*.edu/*",
+                    "*://*.ac.uk/*",
+                    "*://*.edu.au/*",
+                    "*://*.sch.uk/*"
+                ]
+            }
             
             property JsonObject windows: JsonObject {
                 property bool showTitlebar: true // Client-side decoration for shell apps

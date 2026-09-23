@@ -17,6 +17,7 @@ import qs.modules.regionSelector
 import qs.modules.screenCorners
 import qs.modules.screenRecord
 import qs.modules.sessionScreen
+import qs.modules.studyMode
 import qs.modules.sidebarLeft
 import qs.modules.sidebarRight
 import qs.modules.overlay
@@ -39,6 +40,7 @@ Scope {
     PanelLoader { component: ScreenCorners {} }
     PanelLoader { component: ScreenRecordOverlay {} }
     PanelLoader { component: SessionScreen {} }
+    PanelLoader { component: StudyModePanel {} }
     PanelLoader { component: SidebarLeft {} }
     PanelLoader { component: SidebarRight {} }
     PanelLoader { component: WallpaperSelector {} }

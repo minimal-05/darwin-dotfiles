@@ -21,10 +21,18 @@ Singleton {
     property bool overviewOpen: false
     property bool regionSelectorOpen: false
     property bool searchOpen: false
+    // Set by `qs-ipc shell toggle` (super u). Unloads every panel family, so
+    // the shell goes away visually without the process dying -- a hidden shell
+    // comes back in a QML reload instead of a cold Qt start.
+    property bool shellHidden: false
     property bool screenLocked: false
     property bool screenLockContainsCharacters: false
     property bool screenUnlockFailed: false
     property bool sessionOpen: false
+    // The confirmation in front of study mode. Entering is a one-way door for
+    // the duration, so it never starts on a single click.
+    property bool studyModeConfirmOpen: false
+    property bool studyTrackerOpen: false
     property bool superDown: false
     property bool superReleaseMightTrigger: true
     property bool wallpaperSelectorOpen: false
