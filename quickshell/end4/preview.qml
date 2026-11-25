@@ -47,7 +47,13 @@ Window {
     // recovered, and tearing the engine down segfaults in Qt's Cocoa teardown.
     onClosing: close => {
         close.accepted = false;
-        root.visible = false;
+        root.hide();
+    }
+
+    // Hides once any drawing is on disk: grabToImage needs the window shown,
+    // so it stays up for the moment the save takes.
+    function hide(): void {
+        content.whenSaved(() => root.visible = false);
     }
 
     function present(): void {
@@ -84,7 +90,7 @@ Window {
 
         function toggle(): void {
             if (root.visible)
-                root.visible = false;
+                root.hide();
             else
                 root.present();
         }
@@ -95,6 +101,6 @@ Window {
 
         anchors.fill: parent
 
-        onCloseRequested: root.visible = false
+        onCloseRequested: root.hide()
     }
 }
