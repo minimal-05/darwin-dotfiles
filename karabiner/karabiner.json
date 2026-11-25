@@ -27,7 +27,7 @@
                                 "type": "basic",
                                 "to_if_alone": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc search workspacesToggle"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-ipc search workspacesToggle"
                                     }
                                 ]
                             }
@@ -52,12 +52,12 @@
                                 },
                                 "to": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-brightness down"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-brightness down"
                                     }
                                 ],
                                 "to_after_key_up": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-brightness release"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-brightness release"
                                     }
                                 ]
                             },
@@ -77,12 +77,12 @@
                                 },
                                 "to": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-brightness up"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-brightness up"
                                     }
                                 ],
                                 "to_after_key_up": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-brightness release"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-brightness release"
                                     }
                                 ]
                             },
@@ -102,7 +102,7 @@
                                 },
                                 "to": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-volume mute"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-volume mute"
                                     }
                                 ]
                             },
@@ -122,12 +122,12 @@
                                 },
                                 "to": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-volume down"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-volume down"
                                     }
                                 ],
                                 "to_after_key_up": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-volume release"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-volume release"
                                     }
                                 ]
                             },
@@ -147,12 +147,12 @@
                                 },
                                 "to": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-volume up"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-volume up"
                                     }
                                 ],
                                 "to_after_key_up": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-volume release"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-volume release"
                                     }
                                 ]
                             },
@@ -172,12 +172,12 @@
                                 },
                                 "to": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-volume up"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-volume up"
                                     }
                                 ],
                                 "to_after_key_up": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-volume release"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-volume release"
                                     }
                                 ]
                             },
@@ -197,12 +197,12 @@
                                 },
                                 "to": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-volume down"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-volume down"
                                     }
                                 ],
                                 "to_after_key_up": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-volume release"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-volume release"
                                     }
                                 ]
                             },
@@ -222,7 +222,7 @@
                                 },
                                 "to": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-volume mute"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-volume mute"
                                     }
                                 ]
                             }
@@ -248,7 +248,7 @@
                                 },
                                 "to": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc region fullscreen"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-ipc region fullscreen"
                                     }
                                 ]
                             },
@@ -269,7 +269,7 @@
                                 },
                                 "to": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc region screenshot"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-ipc region screenshot"
                                     }
                                 ]
                             }

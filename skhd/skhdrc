@@ -39,4 +39,4 @@ ctrl + alt + cmd + shift - 9 : yabai -m window --space 9
 ctrl + alt + cmd + shift - 0 : yabai -m window --space 10
 
 # quickshell settings window
-ctrl + alt + cmd - i        : /Users/tylerearly/Projects/quickshell-macos/bin/qs-settings
+ctrl + alt + cmd - i        : ~/Projects/quickshell-macos/bin/qs-settings
