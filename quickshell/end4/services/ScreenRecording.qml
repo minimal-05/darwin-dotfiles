@@ -2,6 +2,8 @@ pragma Singleton
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import qs
+import qs.modules.common
 import Quickshell
 import Quickshell.Io
 
@@ -61,5 +63,24 @@ Singleton {
         repeat: true
         running: root.recording
         onTriggered: liveness.running = true
+    }
+
+    // record.sh flips the pidfile, which flips `recording`; nothing to set here.
+    function recordFullscreen(): void {
+        Quickshell.execDetached([Directories.recordScriptPath, "--fullscreen"]);
+    }
+
+    // Logical points of the global display space: what `screencapture -R`
+    // wants and what yabai reports window frames in.
+    function recordRegion(x, y, width, height): void {
+        Quickshell.execDetached([Directories.recordScriptPath, "--region",
+            `${Math.round(x)},${Math.round(y)} ${Math.round(width)}x${Math.round(height)}`]);
+    }
+
+    // record.sh with no arguments SIGINTs the running recording. A region
+    // recording leaves the selector's outline up, so clear that too.
+    function stop(): void {
+        Quickshell.execDetached([Directories.recordScriptPath]);
+        GlobalStates.regionSelectorOpen = false;
     }
 }

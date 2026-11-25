@@ -37,7 +37,12 @@ PIDFILE="${XDG_RUNTIME_DIR:-/tmp/quickshell-$UID}/quickshell/recording.pid"
 # pidfile can be removed once it exits. SIGINT is what finalises the movie.
 record() {
     mkdir -p "$(dirname "$PIDFILE")"
-    screencapture "$@" &
+    # `screencapture -v` stops at stdin EOF, and a backgrounded job gets
+    # /dev/null. A fifo held read-write never reports EOF.
+    local fifo; fifo="$(mktemp -u)"
+    mkfifo "$fifo" || { notify "Recording failed" "Could not create the stdin fifo"; exit 1; }
+    exec 3<>"$fifo"; rm -f "$fifo"
+    screencapture "$@" <&3 &
     local child=$!
     echo "$child" > "$PIDFILE"
     trap 'kill -INT "$child" 2>/dev/null' INT TERM
