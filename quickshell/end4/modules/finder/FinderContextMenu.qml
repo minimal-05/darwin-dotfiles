@@ -1,37 +1,47 @@
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
+import qs.modules.common.functions
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
 
 /**
  * Right-click menu over the file list, plus the rename prompt it opens.
+ * `targets` is always an array -- one entry for a plain right-click, several
+ * when it lands on an existing multi-selection.
  *
  * Every action shells out to the tool macOS already ships for the job rather
  * than reimplementing it -- `open -R` for reveal, qlmanage for Quick Look,
- * ditto for zipping, and Finder itself (over AppleScript) for the trash, so
- * deletions land in the real Trash and stay undoable.
+ * ditto/zip for archiving, and Finder itself (over AppleScript) for the trash,
+ * so deletions land in the real Trash and stay undoable.
  */
 Item {
     id: root
 
     required property var finder
 
-    property var target: null
+    property var targets: []
     property bool menuOpen: false
     property bool renameOpen: false
     property real menuX: 0
     property real menuY: 0
 
-    readonly property string targetPath: root.target ? root.target.path : ""
-    readonly property string targetName: root.target ? root.target.name : ""
-    readonly property string targetDir: root.target && root.target.isDir ? root.target.path : root.targetPath.replace(/\/[^/]*$/, "")
+    readonly property int count: root.targets.length
+    readonly property string targetName: root.count === 1 ? root.targets[0].name : ""
+    // "Open terminal here" and the multi-file compress destination both need one
+    // folder to act in: the item itself when it is the sole selected directory,
+    // else the folder the selection lives in -- which is simply the one open in
+    // the window, since a context menu only ever fires on what that shows.
+    // Everything selected sits directly in the Trash: offer Put Back instead
+    // of trashing it a second time.
+    readonly property bool inTrash: root.count > 0 && root.targets.every(t => t.path.replace(/\/[^/]*$/, "") === `${root.finder.home}/.Trash`)
+    readonly property string primaryDir: root.count === 1 && root.targets[0].isDir ? root.targets[0].path : root.finder.currentPath
 
     visible: root.menuOpen || root.renameOpen
 
-    function popup(x: real, y: real, entry: var): void {
-        root.target = entry;
+    function popup(x: real, y: real, entries: var): void {
+        root.targets = entries;
         root.menuX = x;
         root.menuY = y;
         root.menuOpen = true;
@@ -41,23 +51,32 @@ Item {
         root.menuOpen = false;
     }
 
-    function run(args: var): void {
-        Quickshell.execDetached(args);
+    function run(command: var): void {
+        Quickshell.execDetached(command);
         root.close();
     }
 
-    // AppleScript string literals escape the same way JSON does, which saves
-    // hand-rolling quoting for paths with spaces or quotes in them.
-    function trash(): void {
-        root.run(["osascript", "-e", `tell application "Finder" to delete POSIX file ${JSON.stringify(root.targetPath)}`]);
+    function runIn(command: var, dir: string): void {
+        Quickshell.execDetached({
+            command: command,
+            workingDirectory: dir
+        });
+        root.close();
     }
 
-    function duplicatePath(): string {
-        const dot = root.targetName.lastIndexOf(".");
-        if (root.target.isDir || dot <= 0)
-            return `${root.targetPath} copy`;
-        const stem = root.targetPath.slice(0, root.targetPath.length - (root.targetName.length - dot));
-        return `${stem} copy${root.targetName.slice(dot)}`;
+    // Through Finder, so deletions land in the real Trash and stay undoable --
+    // put-back.py does the delete and notes where each item came from, which is
+    // what Put Back reads.
+    function trash(): void {
+        root.run(["python3", "-E", "-S", Directories.putBackScriptPath, "--trash", ...root.targets.map(t => t.path)]);
+    }
+
+    function duplicatePathFor(entry: var): string {
+        const dot = entry.name.lastIndexOf(".");
+        if (entry.isDir || dot <= 0)
+            return `${entry.path} copy`;
+        const stem = entry.path.slice(0, entry.path.length - (entry.name.length - dot));
+        return `${stem} copy${entry.name.slice(dot)}`;
     }
 
     // Click anywhere else to dismiss.
@@ -79,7 +98,7 @@ Item {
         Layout.fillWidth: true
         implicitHeight: 32
         radius: Appearance.rounding.small
-        color: entryArea.containsMouse ? Appearance.colors.colLayer2Hover : "transparent"
+        color: entryArea.containsMouse ? Appearance.m3colors.m3surfaceContainerHighest : "transparent"
 
         RowLayout {
             anchors.fill: parent
@@ -122,7 +141,9 @@ Item {
         implicitHeight: menuColumn.implicitHeight + 12
         height: implicitHeight
         radius: Appearance.rounding.normal
-        color: Appearance.colors.colLayer2
+        // Opaque on purpose. colLayer2 already carries the theme's content
+        // transparency, and the file list showing through made it unreadable.
+        color: Appearance.m3colors.m3surfaceContainerHigh
         border.width: 1
         border.color: Appearance.colors.colLayer0Border
 
@@ -134,10 +155,17 @@ Item {
             spacing: 1
 
             MenuEntry {
-                label: Translation.tr("Open")
+                visible: root.inTrash
+                label: Translation.tr("Put Back")
+                icon: "restore_from_trash"
+                onTriggered: root.run(["python3", "-E", "-S", Directories.putBackScriptPath, ...root.targets.map(t => t.path)])
+            }
+
+            MenuEntry {
+                label: root.count > 1 ? Translation.tr("Open %1 items").arg(root.count) : Translation.tr("Open")
                 icon: "open_in_new"
                 onTriggered: {
-                    root.finder.activate(root.targetPath, root.target.isDir);
+                    root.targets.forEach(t => root.finder.activate(t.path, t.isDir));
                     root.close();
                 }
             }
@@ -145,13 +173,13 @@ Item {
             MenuEntry {
                 label: Translation.tr("Quick Look")
                 icon: "visibility"
-                onTriggered: root.run(["qlmanage", "-p", root.targetPath])
+                onTriggered: root.run(["qlmanage", "-p", ...root.targets.map(t => t.path)])
             }
 
             MenuEntry {
                 label: Translation.tr("Show in Finder")
                 icon: "folder_open"
-                onTriggered: root.run(["open", "-R", root.targetPath])
+                onTriggered: root.run(["open", "-R", ...root.targets.map(t => t.path)])
             }
 
             Rectangle {
@@ -163,6 +191,7 @@ Item {
             }
 
             MenuEntry {
+                visible: root.count === 1
                 label: Translation.tr("Rename")
                 icon: "edit"
                 onTriggered: {
@@ -177,20 +206,44 @@ Item {
             MenuEntry {
                 label: Translation.tr("Duplicate")
                 icon: "content_copy"
-                onTriggered: root.run(["cp", "-R", root.targetPath, root.duplicatePath()])
+                onTriggered: {
+                    root.targets.forEach(t => Quickshell.execDetached(["cp", "-R", t.path, root.duplicatePathFor(t)]));
+                    root.close();
+                }
             }
 
             MenuEntry {
                 label: Translation.tr("Compress")
                 icon: "folder_zip"
-                onTriggered: root.run(["ditto", "-c", "-k", "--sequesterRsrc", "--keepParent", root.targetPath, `${root.targetPath}.zip`])
+                onTriggered: {
+                    if (root.count === 1) {
+                        const t = root.targets[0];
+                        root.run(["ditto", "-c", "-k", "--sequesterRsrc", "--keepParent", t.path, `${t.path}.zip`]);
+                        return;
+                    }
+                    // ditto's archive mode only ever takes one source; zip takes
+                    // several, which is what Finder's own "Compress N items" does
+                    // under the hood. Run with cwd set to the shared folder so the
+                    // archive holds plain names instead of this machine's full paths.
+                    root.runIn(["zip", "-rq", "--", "Archive.zip", ...root.targets.map(t => t.name)], root.primaryDir);
+                }
             }
 
             MenuEntry {
                 label: Translation.tr("Copy path")
                 icon: "link"
                 onTriggered: {
-                    Quickshell.clipboardText = root.targetPath;
+                    Quickshell.clipboardText = root.targets.map(t => t.path).join("\n");
+                    root.close();
+                }
+            }
+
+            MenuEntry {
+                visible: root.count > 0 && root.targets.every(t => root.finder.ejectable.includes(t.path))
+                label: Translation.tr("Eject")
+                icon: "eject"
+                onTriggered: {
+                    root.targets.forEach(t => root.finder.eject(t.path));
                     root.close();
                 }
             }
@@ -198,7 +251,7 @@ Item {
             MenuEntry {
                 label: Translation.tr("Open terminal here")
                 icon: "terminal"
-                onTriggered: root.run(["open", "-na", "kitty", "--args", "--directory", root.targetDir])
+                onTriggered: root.run(["open", "-na", "kitty", "--args", "--directory", root.primaryDir])
             }
 
             Rectangle {
@@ -210,7 +263,8 @@ Item {
             }
 
             MenuEntry {
-                label: Translation.tr("Move to Trash")
+                visible: !root.inTrash
+                label: root.count > 1 ? Translation.tr("Move %1 items to Trash").arg(root.count) : Translation.tr("Move to Trash")
                 icon: "delete"
                 danger: true
                 onTriggered: root.trash()
@@ -279,14 +333,19 @@ Item {
         }
 
         function commit(): void {
-            const name = renameField.text.trim();
-            // A name with a slash in it would silently mean "move somewhere else".
-            if (name.length === 0 || name === root.targetName || name.includes("/")) {
+            if (root.count !== 1) {
                 root.renameOpen = false;
                 return;
             }
-            const parent = root.targetPath.replace(/\/[^/]*$/, "");
-            Quickshell.execDetached(["mv", root.targetPath, `${parent}/${name}`]);
+            const name = renameField.text.trim();
+            const target = root.targets[0];
+            // A name with a slash in it would silently mean "move somewhere else".
+            if (name.length === 0 || name === target.name || name.includes("/")) {
+                root.renameOpen = false;
+                return;
+            }
+            const parent = target.path.replace(/\/[^/]*$/, "");
+            Quickshell.execDetached(["mv", target.path, `${parent}/${name}`]);
             root.renameOpen = false;
         }
     }

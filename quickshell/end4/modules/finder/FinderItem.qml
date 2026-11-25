@@ -68,34 +68,13 @@ Rectangle {
         anchors.rightMargin: 12
         spacing: 12
 
-        Item {
+        FinderIcon {
             Layout.preferredWidth: 26
             Layout.preferredHeight: 26
-
-            // A real miniature for images and apps; the type glyph otherwise.
-            // ponytail: no QuickLook previews for pdfs and video here either --
-            // see the tile view's note on why that stays a subprocess too far.
-            Image {
-                id: thumbnail
-
-                anchors.fill: parent
-                visible: (root.modelData.isImage || root.modelData.isApp) && status === Image.Ready
-                source: root.modelData.isImage ? `file://${root.modelData.path}` : root.modelData.isApp ? Quickshell.iconPath(root.modelData.path) : ""
-                sourceSize.width: 52
-                sourceSize.height: 52
-                fillMode: Image.PreserveAspectFit
-                asynchronous: true
-                cache: true
-            }
-
-            MaterialSymbol {
-                anchors.centerIn: parent
-                visible: !thumbnail.visible
-                text: root.modelData.icon
-                iconSize: Appearance.font.pixelSize.huge
-                fill: root.isDir ? 1 : 0
-                color: root.selected ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colPrimary
-            }
+            modelData: root.modelData
+            selected: root.selected
+            glyphSize: Appearance.font.pixelSize.huge
+            thumbSize: 52
         }
 
         StyledText {

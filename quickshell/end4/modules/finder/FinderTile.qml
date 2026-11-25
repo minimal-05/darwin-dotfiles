@@ -4,7 +4,6 @@ import qs.modules.common.widgets
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Io
 
 /**
  * One tile in icon view: a thumbnail for images and apps, the type glyph for
@@ -22,14 +21,6 @@ Rectangle {
 
     readonly property string path: root.modelData.path
     readonly property bool isDir: root.modelData.isDir
-
-    // Everything that is not already covered by a raster thumbnail or an app
-    // icon -- pdfs, video, audio, office documents, source files -- can still
-    // have a QuickLook preview.
-    readonly property bool canPreview: !root.isDir && !root.modelData.isImage && !root.modelData.isApp
-    // Keyed by path *and* mtime, so editing a file supersedes its preview
-    // instead of showing a stale one forever.
-    readonly property string previewPath: root.canPreview ? `${Directories.finderThumbs}/${Qt.md5(root.modelData.path + root.modelData.modified)}.png` : ""
 
     signal clicked(int modifiers)
     signal activated
@@ -57,80 +48,12 @@ Rectangle {
         anchors.margins: 4
         spacing: 2
 
-        Item {
+        FinderIcon {
             Layout.fillWidth: true
             Layout.fillHeight: true
-
-            // Real thumbnails for images, the real icon for apps.
-            // ponytail: no QuickLook previews for pdfs and video -- qlmanage is a
-            // subprocess per file, and a folder of them would cost more than the
-            // entire window does. Worth adding behind a cache if it's missed.
-            Image {
-                id: thumbnail
-
-                anchors.fill: parent
-                anchors.margins: 2
-                visible: (root.modelData.isImage || root.modelData.isApp) && status === Image.Ready
-                source: root.modelData.isImage ? `file://${root.modelData.path}` : root.modelData.isApp ? Quickshell.iconPath(root.modelData.path) : ""
-                sourceSize.width: 128
-                sourceSize.height: 128
-                fillMode: Image.PreserveAspectFit
-                asynchronous: true
-                cache: true
-            }
-
-            // QuickLook preview. qlmanage is the thumbnailer Finder itself uses,
-            // so a pdf, a video, a Keynote deck or a .c file all get a real
-            // preview without this shell knowing any of those formats.
-            Image {
-                id: preview
-
-                anchors.fill: parent
-                anchors.margins: 2
-                visible: root.canPreview && status === Image.Ready
-                source: previewProc.ready ? `file://${root.previewPath}` : ""
-                sourceSize.width: 128
-                sourceSize.height: 128
-                fillMode: Image.PreserveAspectFit
-                asynchronous: true
-                cache: true
-            }
-
-            // ponytail: one subprocess per file, so it is gated twice -- only
-            // for tiles that exist (the GridView only builds visible ones) and
-            // only after the tile has held still for 200ms, so flinging through
-            // a big folder does not spawn a process per row. The png is cached
-            // on disk, so a file is only ever rendered once.
-            Timer {
-                running: root.canPreview && !previewProc.ready
-                interval: 200
-                onTriggered: previewProc.running = true
-            }
-
-            Process {
-                id: previewProc
-
-                property bool ready: false
-                command: ["bash", "-c", `out='${StringUtils.shellSingleQuoteEscape(root.previewPath)}'; `
-                    + `[ -f "$out" ] && exit 0; `
-                    + `mkdir -p '${StringUtils.shellSingleQuoteEscape(Directories.finderThumbs)}'; `
-                    + `tmp=$(mktemp -d); `
-                    + `qlmanage -t -s 256 -o "$tmp" '${StringUtils.shellSingleQuoteEscape(root.modelData.path)}' >/dev/null 2>&1; `
-                    + `f=$(find "$tmp" -name '*.png' -maxdepth 1 | head -1); `
-                    + `[ -n "$f" ] && mv "$f" "$out"; `
-                    + `rm -rf "$tmp"; `
-                    + `[ -f "$out" ]`]
-                onExited: exitCode => previewProc.ready = (exitCode === 0)
-            }
-
-            MaterialSymbol {
-                anchors.centerIn: parent
-                visible: !thumbnail.visible && !preview.visible
-                text: root.modelData.icon
-                iconSize: 56
-                fill: root.isDir ? 1 : 0
-                color: root.selected ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colPrimary
-            }
+            Layout.margins: 2
+            modelData: root.modelData
+            selected: root.selected
         }
 
         StyledText {

@@ -31,7 +31,7 @@ Window {
 
     // The title is the handle yabai has on this window: the picker is matched by
     // it and left unmanaged, so it floats over whatever asked for it rather than
-    // being tiled into the layout. See the rule in bin/qs-finder.
+    // being tiled into the layout. See the rule in src/tools/qs-finder.
     title: win.pickMode.length > 0 ? "Choose a wallpaper" : "Files"
 
     minimumWidth: 360
@@ -43,9 +43,15 @@ Window {
     x: Screen.width / 2 - win.width / 2 + win.cascade * 28
     y: Screen.height / 2 - win.height / 2 + win.cascade * 28
 
+    // A defensive backstop for any native close request that is not one of
+    // the two Shortcuts above (which call closeRequested() directly and never
+    // reach this at all): only the window that actually has focus turns it
+    // into a real close, so nothing here can cascade into closing every
+    // window at once the way Cmd+Q's own native handling used to.
     onClosing: close => {
         close.accepted = false;
-        win.closeRequested();
+        if (win.active)
+            win.closeRequested();
     }
 
     // Hiding is a cancel: a pick left armed would greet the next plain open with
@@ -71,6 +77,17 @@ Window {
     // window with -- this is the only way out of one.
     Shortcut {
         sequences: [StandardKey.Close]
+        onActivated: win.closeRequested()
+    }
+
+    // Cmd+Q's own native handling asks every top-level window to close at
+    // once, not just the one in front (see src/cocoa/init.cpp, which strips
+    // its key equivalent from the app menu for a config like this one with
+    // more than one window). With that claim gone, the key press reaches here
+    // instead, and behaves exactly like Cmd+W -- close what has focus, leave
+    // the rest alone.
+    Shortcut {
+        sequences: [StandardKey.Quit]
         onActivated: win.closeRequested()
     }
 

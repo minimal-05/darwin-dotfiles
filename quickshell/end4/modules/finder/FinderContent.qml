@@ -5,6 +5,7 @@ import qs.modules.common.functions
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Io
 import Qt.labs.folderlistmodel
 
 Item {
@@ -124,9 +125,9 @@ Item {
             root.navigate(path);
         else if (root.pickMode.length > 0 && root.imageExtensions.includes(ext))
             root.picked(path);
-        else if (root.imageExtensions.includes(ext) || ext === "svg")
-            // The shell's own viewer rather than Preview.app, for the same
-            // reason this window exists rather than a Finder one.
+        else if (root.imageExtensions.includes(ext) || ["svg", "pdf", "mp4", "mov", "m4v"].includes(ext))
+            // The shell's own viewer rather than Preview.app or QuickTime, for
+            // the same reason this window exists rather than a Finder one.
             Quickshell.execDetached(["qs-preview", path]);
         else
             Quickshell.execDetached(["open", path]);
@@ -242,6 +243,13 @@ Item {
             path: "/Applications",
             icon: "apps"
         },
+        // Listing it needs Full Disk Access for Files.app -- ~/.Trash is
+        // TCC-protected, and without the grant it just reads as empty.
+        {
+            name: Translation.tr("Trash"),
+            path: `${root.home}/.Trash`,
+            icon: "delete"
+        },
     ]
 
     FolderListModel {
@@ -268,6 +276,9 @@ Item {
         colBackgroundToggledHover: Appearance.colors.colSecondaryContainerHover
         colRippleToggled: Appearance.colors.colSecondaryContainerActive
         downAction: () => root.navigate(placeButton.modelData.path)
+        // Right-click the Trash to empty it. Finder does the work, so it needs
+        // no disk access and asks for confirmation the way Finder always does.
+        altAction: placeButton.modelData.path === `${root.home}/.Trash` ? () => Quickshell.execDetached(["osascript", "-e", 'tell application "Finder" to empty trash']) : null
 
         StyledToolTip {
             text: placeButton.modelData.name
@@ -322,6 +333,36 @@ Item {
             });
         }
         return out;
+    }
+
+    // What can be ejected: real directories in /Volumes. The boot disk is a
+    // symlink to /, and find does not follow symlinks by default, so that
+    // leaves it out. Re-run whenever something mounts or unmounts.
+    property var ejectable: []
+
+    Connections {
+        target: volumeModel
+        function onCountChanged() {
+            ejectableProc.running = true;
+        }
+    }
+
+    Process {
+        id: ejectableProc
+
+        running: true
+        command: ["find", "/Volumes", "-mindepth", "1", "-maxdepth", "1", "-type", "d"]
+        stdout: StdioCollector {
+            onStreamFinished: root.ejectable = this.text.split("\n").filter(l => l.length > 0)
+        }
+    }
+
+    // ponytail: fire and forget -- a busy disk just stays mounted with no
+    // message. Wire diskutil's stderr into a notification if that bites.
+    function eject(path: string): void {
+        if (root.currentPath === path || root.currentPath.startsWith(path + "/"))
+            root.navigate(root.home);
+        Quickshell.execDetached(["diskutil", "eject", path]);
     }
 
     // FolderListModel's own nameFilters only ever filter *files* -- directories
@@ -422,7 +463,29 @@ Item {
                 Repeater {
                     model: root.volumes
 
-                    SidebarButton {}
+                    RowLayout {
+                        id: volumeRow
+
+                        required property var modelData
+
+                        Layout.fillWidth: true
+                        spacing: 0
+
+                        SidebarButton {
+                            modelData: volumeRow.modelData
+                        }
+
+                        IconToolbarButton {
+                            visible: root.sidebarExpanded && root.ejectable.includes(volumeRow.modelData.path)
+                            implicitHeight: 32
+                            text: "eject"
+                            downAction: () => root.eject(volumeRow.modelData.path)
+
+                            StyledToolTip {
+                                text: Translation.tr("Eject")
+                            }
+                        }
+                    }
                 }
 
                 Item {
@@ -619,8 +682,10 @@ Item {
                     clip: true
                     visible: root.gridMode
                     focus: root.gridMode
-                    cellWidth: 108
-                    cellHeight: 118
+                    // As many ~108px columns as fit, then stretched to share
+                    // out the leftover so there is no dead gutter on the right.
+                    cellWidth: gridView.width / Math.max(1, Math.floor(gridView.width / 108))
+                    cellHeight: gridView.cellWidth + 10
                     boundsBehavior: Flickable.DragOverBounds
                     model: root.gridMode ? root.entries : []
 

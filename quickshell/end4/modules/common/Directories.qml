@@ -55,6 +55,7 @@ Singleton {
     property string aiChats: FileUtils.trimFileProtocol(`${Directories.state}/user/ai/chats`)
     property string recordScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/videos/record.sh`)
     property string brightnessScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/macos/brightness.py`)
+    property string putBackScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/macos/put-back.py`)
     property string studyScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/study/study-mode.sh`)
     property string networkScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/macos/network.sh`)
     property string userAvatarPathAccountsService: FileUtils.trimFileProtocol(`/var/lib/AccountsService/icons/${SystemInfo.username}`)
