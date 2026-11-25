@@ -319,7 +319,7 @@
                         ]
                     },
                     {
-                        "description": "Cmd+Shift+3/4 screenshot through Quickshell (macOS never sees the key, so its own capture never runs)",
+                        "description": "Cmd+Shift+3/4/5 screenshot and record through Quickshell (macOS never sees the key, so its own capture never runs)",
                         "manipulators": [
                             {
                                 "type": "basic",
@@ -360,6 +360,60 @@
                                 "to": [
                                     {
                                         "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-ipc region screenshot"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "basic",
+                                "from": {
+                                    "key_code": "5",
+                                    "modifiers": {
+                                        "mandatory": [
+                                            "command",
+                                            "shift"
+                                        ],
+                                        "optional": [
+                                            "control",
+                                            "caps_lock"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-ipc screenRecord toggle"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "description": "Extended display: ` (keycode 0x32) types \\",
+                        "manipulators": [
+                            {
+                                "description": "ponytail: 'extended display' = the Anker dock is plugged in (the LG hangs off it); Karabiner can't see displays.",
+                                "type": "basic",
+                                "from": {
+                                    "key_code": "grave_accent_and_tilde",
+                                    "modifiers": {
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "key_code": "backslash"
+                                    }
+                                ],
+                                "conditions": [
+                                    {
+                                        "type": "device_exists_if",
+                                        "identifiers": [
+                                            {
+                                                "vendor_id": 6353,
+                                                "product_id": 20521
+                                            }
+                                        ]
                                     }
                                 ]
                             }
