@@ -58,15 +58,22 @@ Singleton {
         Audio.source.audio.muted = !Audio.source.audio.muted
     }
 
-    // Steps are spaced on a curve rather than evenly. Quiet is where you want
-    // fine control; up loud, a couple of percent is inaudible. This gives about
-    // 2 points per press near the bottom and 9 near the top, still 16 presses
-    // end to end. `curve` is the knob: 1.0 is macOS's own even 1/16 notches,
-    // higher stretches the quiet end further.
+    // Steps are spaced evenly because the macOS volume scalar is already linear
+    // in dB. Measured through kAudioDevicePropertyVolumeScalarToDecibels on the
+    // built-in output: scalar 0 -> -63.5 dB, scalar 1 -> 0 dB, a straight line
+    // in between. Even steps therefore mean an equal loudness change per press,
+    // 63.5/16 = ~4 dB, which is also macOS's own 1/16 notch.
+    //
+    // `curve` stretches the quiet end and used to be 1.5, on the theory that
+    // quiet is where you want fine control. Against a dB-linear scalar that
+    // backfires: it spent the first presses where they cannot be heard (step
+    // 0 -> 1 moved 0.99 dB, while a press up top moved 5.86 dB), so the keys
+    // felt dead near zero and then lurched. Leave it at 1.0 unless something
+    // is measured to want otherwise.
     //
     // bin/qs-volume repeats this formula for when the shell is not running.
     // Change the two together.
-    readonly property real curve: 1.5
+    readonly property real curve: 1.0
     readonly property int volumeSteps: 16
 
     function __volumeToStep(vol: real): real {
@@ -86,9 +93,23 @@ Singleton {
         // `curve` is tuned up, but that is exactly when it would bite.
         // The old decrement also had no lower clamp and could go negative.
         const smallest = 0.01;
-        Audio.sink.audio.volume = Math.abs(next - cur) < smallest
+        const target = Math.abs(next - cur) < smallest
             ? Math.max(0, Math.min(1, cur + dir * smallest))
             : next;
+        Audio.sink.audio.volume = target;
+        // Scalar 0 is the bottom of the device's range, about -63 dB, not
+        // silence -- quiet enough to look like 0 and still be audible in a
+        // quiet room. Mute at the bottom step the way the macOS keys do, and
+        // lift it again on the way back up.
+        //
+        // Only on the transition. The shim re-emits mutedRequested whenever the
+        // backend pushes a landed value back, and on a device with no hardware
+        // mute an unmute request replays the remembered volume, so writing this
+        // every step fights the step that was just written -- a hold would
+        // stall and bounce backwards around the middle of the range.
+        const wantMuted = (target <= 0);
+        if (Audio.sink.audio.muted !== wantMuted)
+            Audio.sink.audio.muted = wantMuted;
     }
 
     // Single step. Scroll wheels and buttons use these, and they must never
@@ -127,7 +148,7 @@ Singleton {
     Timer {
         id: volumeRamp
 
-        readonly property int startDelay: 400 // hold this long before repeating
+        readonly property int startDelay: 250 // hold this long before repeating
         property int ticks: 0
 
         repeat: true
