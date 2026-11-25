@@ -4,7 +4,7 @@
 # Everything here is a launchd agent, so this is really just "install and load
 # the agents" -- after the first run, logging in does it.
 #
-#   yabai      com.koekeishiya.yabai      (yabai --start-service)
+#   yabai      com.asmvik.yabai           (yabai --start-service)
 #   skhd       local.skhd                 (written below)
 #   borders    homebrew.mxcl.borders      (brew services)
 #   Files.app  org.quickshell.files       (written by qs-make-app)
