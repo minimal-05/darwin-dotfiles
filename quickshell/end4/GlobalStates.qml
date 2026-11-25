@@ -20,11 +20,15 @@ Singleton {
     property bool overlayOpen: false
     property bool overviewOpen: false
     property bool regionSelectorOpen: false
+    property bool screenRecordOverlayOpen: false
     property bool searchOpen: false
     // Set by `qs-ipc shell toggle` (super u). Unloads every panel family, so
     // the shell goes away visually without the process dying -- a hidden shell
     // comes back in a QML reload instead of a cold Qt start.
     property bool shellHidden: false
+    // Set by the FusionMode service while Autodesk Fusion has the front. Drops
+    // every panel not marked keepInFusion -- see PanelLoader.
+    property bool fusionMode: false
     property bool screenLocked: false
     property bool screenLockContainsCharacters: false
     property bool screenUnlockFailed: false
