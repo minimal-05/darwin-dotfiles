@@ -45,6 +45,41 @@ WindowDialog {
             width: ListView.view.width
         }
     }
+    RowLayout {
+        // Un-redacting SSIDs in-process needs com.apple.developer.networking.wifi-info,
+        // which needs a paid Apple Developer Program account + provisioning
+        // profile this build doesn't have (see src/tools/qs-bundle in
+        // quickshell-macos) -- confirmed a hard AMFI launch failure without
+        // one, so this dialog can never show real names for other networks.
+        // System Settings' Wi-Fi pane is a first-party process, exempt from
+        // that restriction, and shows real names today (verified: it lists
+        // both the connected network and others by name). So this hands off
+        // to it instead of pretending our own list could ever catch up.
+        Layout.fillWidth: true
+        Layout.topMargin: 4
+        Layout.bottomMargin: 4
+        visible: Network.friendlyWifiNetworks.some(n => n.nameHidden)
+        spacing: 8
+
+        MaterialSymbol {
+            text: "location_off"
+            iconSize: Appearance.font.pixelSize.larger
+            color: Appearance.colors.colOnSurfaceVariant
+        }
+        StyledText {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            color: Appearance.colors.colOnSurfaceVariant
+            text: Translation.tr("This build can't show real network names. See and join them in System Settings instead.")
+        }
+        DialogButton {
+            buttonText: Translation.tr("Open Wi-Fi Settings")
+            onClicked: {
+                Quickshell.execDetached(["open", "x-apple.systempreferences:com.apple.wifi-settings-extension"]);
+                GlobalStates.sidebarRightOpen = false;
+            }
+        }
+    }
     WindowDialogSeparator {}
     WindowDialogButtonRow {
         DialogButton {

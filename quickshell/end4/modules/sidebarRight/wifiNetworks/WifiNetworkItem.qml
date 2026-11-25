@@ -9,7 +9,9 @@ import QtQuick.Layouts
 DialogListItem {
     id: root
     required property WifiAccessPoint wifiNetwork
-    enabled: !(Network.wifiConnectTarget === root.wifiNetwork && !wifiNetwork?.active)
+    // Can't join a network whose real name macOS won't disclose (see
+    // Network.qml); the already-connected one is still shown, just inert.
+    enabled: !(Network.wifiConnectTarget === root.wifiNetwork && !wifiNetwork?.active) && !(wifiNetwork?.nameHidden && !wifiNetwork?.active)
 
     active: (wifiNetwork?.askingPassword || wifiNetwork?.active) ?? false
     onClicked: {
@@ -39,7 +41,10 @@ DialogListItem {
                 Layout.fillWidth: true
                 color: Appearance.colors.colOnSurfaceVariant
                 elide: Text.ElideRight
-                text: root.wifiNetwork?.ssid ?? Translation.tr("Unknown")
+                font.italic: root.wifiNetwork?.nameHidden ?? false
+                text: root.wifiNetwork?.nameHidden
+                    ? (root.wifiNetwork?.active ? Translation.tr("This network (name hidden)") : Translation.tr("Nearby network (name hidden)"))
+                    : root.wifiNetwork?.ssid ?? Translation.tr("Unknown")
                 textFormat: Text.PlainText
             }
             MaterialSymbol {

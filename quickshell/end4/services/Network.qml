@@ -252,32 +252,38 @@ Singleton {
                 const rep = new RegExp("\\\\:", "g");
                 const rep2 = new RegExp(PLACEHOLDER, "g");
 
-                const allNetworks = text.trim().split("\n").map(n => {
+                const allNetworks = text.trim().split("\n").map((n, i) => {
                     const net = n.replace(rep, PLACEHOLDER).split(":");
+                    const ssid = net[3];
                     return {
                         active: net[0] === "yes",
                         strength: parseInt(net[1]),
                         frequency: parseInt(net[2]),
-                        ssid: net[3],
+                        ssid,
                         bssid: net[4]?.replace(rep2, ":") ?? "",
-                        security: net[5] || ""
+                        security: net[5] || "",
+                        // Redacted SSIDs (no Location Services permission) are
+                        // all the same literal string; key those by scan
+                        // position instead so distinct nearby networks don't
+                        // collapse into one entry.
+                        key: ssid === "<redacted>" ? `<redacted>#${i}` : ssid
                     };
                 }).filter(n => n.ssid && n.ssid.length > 0);
 
-                // Group networks by SSID and prioritize connected ones
+                // Group networks by key and prioritize connected ones
                 const networkMap = new Map();
                 for (const network of allNetworks) {
-                    const existing = networkMap.get(network.ssid);
+                    const existing = networkMap.get(network.key);
                     if (!existing) {
-                        networkMap.set(network.ssid, network);
+                        networkMap.set(network.key, network);
                     } else {
                         // Prioritize active/connected networks
                         if (network.active && !existing.active) {
-                            networkMap.set(network.ssid, network);
+                            networkMap.set(network.key, network);
                         } else if (!network.active && !existing.active) {
                             // If both are inactive, keep the one with better signal
                             if (network.strength > existing.strength) {
-                                networkMap.set(network.ssid, network);
+                                networkMap.set(network.key, network);
                             }
                         }
                         // If existing is active and new is not, keep existing
@@ -288,12 +294,12 @@ Singleton {
 
                 const rNetworks = root.wifiNetworks;
 
-                const destroyed = rNetworks.filter(rn => !wifiNetworks.find(n => n.frequency === rn.frequency && n.ssid === rn.ssid && n.bssid === rn.bssid));
+                const destroyed = rNetworks.filter(rn => !wifiNetworks.find(n => n.key === rn.key));
                 for (const network of destroyed)
                     rNetworks.splice(rNetworks.indexOf(network), 1).forEach(n => n.destroy());
 
                 for (const network of wifiNetworks) {
-                    const match = rNetworks.find(n => n.frequency === network.frequency && n.ssid === network.ssid && n.bssid === network.bssid);
+                    const match = rNetworks.find(n => n.key === network.key);
                     if (match) {
                         match.lastIpcObject = network;
                     } else {
