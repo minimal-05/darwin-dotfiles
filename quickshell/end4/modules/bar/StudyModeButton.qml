@@ -22,16 +22,26 @@ Item {
         spacing: 4
 
         MaterialSymbol {
+            visible: !StudyMode.busy
             text: "school"
             iconSize: Appearance.font.pixelSize.larger
             fill: StudyMode.active ? 1 : 0
             color: StudyMode.active ? Appearance.colors.colPrimary : Appearance.colors.colOnLayer0
         }
 
+        MaterialLoadingIndicator {
+            visible: !!StudyMode.busy
+            loading: visible
+            implicitSize: Appearance.font.pixelSize.larger + 4
+        }
+
         StyledText {
-            visible: StudyMode.active
-            text: StudyMode.remainingText
+            visible: StudyMode.active || !!StudyMode.busy
+            text: StudyMode.busy === "starting" ? Translation.tr("Starting…")
+                : StudyMode.busy === "stopping" ? Translation.tr("Ending…")
+                : StudyMode.remainingText
             font.pixelSize: Appearance.font.pixelSize.smaller
+            font.family: Appearance.font.family.numbers
             color: Appearance.colors.colPrimary
         }
     }
@@ -72,7 +82,7 @@ Item {
         // No stop path on purpose: ending early is a terminal errand. Left click
         // while idle asks to start; otherwise (or right click) opens the tracker.
         onClicked: mouse => {
-            if (mouse.button === Qt.LeftButton && !StudyMode.active)
+            if (mouse.button === Qt.LeftButton && !StudyMode.active && !StudyMode.busy)
                 GlobalStates.studyModeConfirmOpen = true;
             else
                 GlobalStates.studyTrackerOpen = !GlobalStates.studyTrackerOpen;
@@ -83,7 +93,7 @@ Item {
         // bar permanently. Drive it off containsMouse explicitly instead.
         StyledToolTip {
             extraVisibleCondition: false
-            alternativeVisibleCondition: mouseArea.containsMouse && !StudyMode.active
+            alternativeVisibleCondition: mouseArea.containsMouse && !StudyMode.active && !StudyMode.busy
                 && !GlobalStates.studyModeConfirmOpen && !GlobalStates.studyTrackerOpen
             text: Translation.tr("Study · right-click for your stats (⌃⌥⌘S)")
         }

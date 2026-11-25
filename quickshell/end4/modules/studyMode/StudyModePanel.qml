@@ -25,7 +25,7 @@ Scope {
         // Opens the confirmation, never a session: starting still takes a
         // deliberate click.
         function confirm(): void {
-            if (!StudyMode.active)
+            if (!StudyMode.active && !StudyMode.busy)
                 GlobalStates.studyModeConfirmOpen = true;
         }
 
@@ -132,14 +132,23 @@ Scope {
                 right: true
             }
 
-            mask: Region {
-                item: card
-            }
-
+            // Modal: the scrim takes the whole screen, and clicking it or
+            // pressing Esc cancels -- the way out of a dialog should not be a
+            // hunt for the Cancel button.
             Rectangle {
                 anchors.fill: parent
-                color: Appearance.colors.colScrim ?? "#80000000"
-                opacity: 0.5
+                color: "#000000"
+                opacity: 0.45
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: GlobalStates.studyModeConfirmOpen = false
+                }
+            }
+
+            Item {
+                focus: true
+                Keys.onEscapePressed: GlobalStates.studyModeConfirmOpen = false
+                Keys.onReturnPressed: startButton.clicked()
             }
 
             Card {
@@ -147,6 +156,10 @@ Scope {
                 anchors.centerIn: parent
                 implicitWidth: 420
                 implicitHeight: column.implicitHeight + 48
+
+                MouseArea {
+                    anchors.fill: parent
+                }
 
                 ColumnLayout {
                     id: column
@@ -168,7 +181,7 @@ Scope {
                     }
                     Line {
                         icon: "public"
-                        text: Translation.tr("Firefox loads only your school sites. Your tabs are saved and restored.")
+                        text: Translation.tr("Firefox restarts with your tabs, and only your school sites will load.")
                     }
                     Line {
                         icon: "stars"
@@ -198,6 +211,7 @@ Scope {
                         }
 
                         PillButton {
+                            id: startButton
                             buttonText: Translation.tr("Start")
                             colText: Appearance.colors.colOnPrimary
                             colBackground: Appearance.colors.colPrimary
@@ -212,7 +226,6 @@ Scope {
                 }
             }
 
-            Keys.onEscapePressed: GlobalStates.studyModeConfirmOpen = false
         }
     }
 
@@ -222,15 +235,30 @@ Scope {
     property int shownWarnAt: 0
     property bool warnVisible: false
 
+    property string bannerText: ""
+    property string bannerIcon: "warning"
+
+    function showBanner(icon, text): void {
+        root.bannerIcon = icon;
+        root.bannerText = text;
+        root.warnVisible = true;
+        warnTimer.restart();
+    }
+
     Connections {
         target: StudyMode
         function onWarnChanged(): void {
             const at = StudyMode.warn?.at ?? 0;
             if (at > root.shownWarnAt && Date.now() / 1000 - at < 60) {
                 root.shownWarnAt = at;
-                root.warnVisible = true;
-                warnTimer.restart();
+                root.showBanner("warning", StudyMode.warn.text);
             }
+        }
+        // start/stop failures used to vanish into the script's stderr: the
+        // button did nothing and there was no telling why.
+        function onErrorChanged(): void {
+            if (StudyMode.error)
+                root.showBanner("error", StudyMode.error.text);
         }
     }
 
@@ -241,7 +269,7 @@ Scope {
     }
 
     Loader {
-        active: root.warnVisible && StudyMode.active
+        active: root.warnVisible
 
         sourceComponent: PanelWindow {
             visible: true
@@ -268,12 +296,12 @@ Scope {
                     anchors.centerIn: parent
                     spacing: 10
                     MaterialSymbol {
-                        text: "warning"
+                        text: root.bannerIcon
                         iconSize: Appearance.font.pixelSize.huge
                         color: Appearance.colors.colOnErrorContainer
                     }
                     StyledText {
-                        text: StudyMode.warn?.text ?? ""
+                        text: root.bannerText
                         font.pixelSize: Appearance.font.pixelSize.large
                         color: Appearance.colors.colOnErrorContainer
                     }
@@ -321,9 +349,8 @@ Scope {
 
     Connections {
         target: StudyMode
-        function onGained(xp): void {
-            if (xp >= 25)
-                root.celebrate({ icon: "flag", title: Translation.tr("Session complete!"), subtitle: Translation.tr("+%1 XP").arg(xp), confetti: true, sound: "/System/Library/Sounds/Hero.aiff" });
+        function onSessionDone(): void {
+            root.celebrate({ icon: "flag", title: Translation.tr("Session complete!"), subtitle: Translation.tr("+25 XP bonus · %1 sessions").arg(StudyMode.sessions), confetti: true, sound: "/System/Library/Sounds/Hero.aiff" });
         }
         function onLevelUp(level, title): void {
             root.celebrate({ icon: "keyboard_double_arrow_up", title: Translation.tr("Level %1!").arg(level), subtitle: Translation.tr("You're now a %1").arg(title), confetti: true, sound: "/System/Library/Sounds/Glass.aiff" });
@@ -481,7 +508,7 @@ Scope {
     // GitHub's four shades, in the theme's primary instead of green.
     function heat(minutes): color {
         if (minutes <= 0)
-            return Appearance.colors.colLayer1;
+            return Qt.rgba(Appearance.colors.colOutlineVariant.r, Appearance.colors.colOutlineVariant.g, Appearance.colors.colOutlineVariant.b, 0.45);
         const a = minutes < 15 ? 0.3 : minutes < 45 ? 0.55 : minutes < 90 ? 0.8 : 1;
         return Qt.rgba(Appearance.colors.colPrimary.r, Appearance.colors.colPrimary.g, Appearance.colors.colPrimary.b, a);
     }
@@ -507,6 +534,11 @@ Scope {
             margins {
                 top: Appearance.sizes.baseBarHeight + 8
                 right: 8
+            }
+
+            Item {
+                focus: true
+                Keys.onEscapePressed: GlobalStates.studyTrackerOpen = false
             }
 
             Card {
@@ -817,9 +849,10 @@ Scope {
                         Layout.fillWidth: true
                         Layout.topMargin: 4
                         implicitHeight: 44
-                        enabled: !StudyMode.active
-                        buttonText: StudyMode.active
-                            ? Translation.tr("Studying · %1 left").arg(StudyMode.remainingText)
+                        enabled: !StudyMode.active && !StudyMode.busy
+                        buttonText: StudyMode.busy === "starting" ? Translation.tr("Starting…")
+                            : StudyMode.busy === "stopping" ? Translation.tr("Ending…")
+                            : StudyMode.active ? Translation.tr("Studying · %1 left").arg(StudyMode.remainingText)
                             : Translation.tr("Start a %1-minute session").arg(Config.options.studyMode.durationMinutes)
                         colText: Appearance.colors.colOnPrimary
                         colBackground: Appearance.colors.colPrimary
@@ -833,7 +866,9 @@ Scope {
                     StyledText {
                         Layout.fillWidth: true
                         horizontalAlignment: Text.AlignHCenter
-                        text: Translation.tr("1 XP per focused minute · +25 XP for finishing · ⌃⌥⌘S")
+                        text: StudyMode.active
+                            ? Translation.tr("End early from Settings › General · ⌃⌥⌘S closes this")
+                            : Translation.tr("1 XP per focused minute · +25 XP for finishing · ⌃⌥⌘S")
                         font.pixelSize: Appearance.font.pixelSize.smaller
                         color: Appearance.colors.colOnLayer1
                     }

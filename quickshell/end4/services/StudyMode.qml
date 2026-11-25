@@ -20,14 +20,21 @@ Singleton {
     readonly property string script: Directories.studyScriptPath
 
     property bool active: false
+    // "starting" / "stopping" while the script runs -- a few seconds, mostly
+    // Firefox restarting. The UI shows it and refuses a second click.
+    property string busy: ""
+    // The script's own message when start/stop fails, e.g. no allowed sites.
+    property var error: null
     property int endsAt: 0
     property int now: Math.floor(Date.now() / 1000)
     readonly property int remaining: root.active ? Math.max(0, root.endsAt - root.now) : 0
     readonly property string remainingText: {
+        // Zero-padded so the bar entry never changes width as it counts.
         const s = root.remaining;
         const h = Math.floor(s / 3600);
-        const m = Math.floor((s % 3600) / 60);
-        return h > 0 ? `${h}h ${m}m` : `${m}m ${s % 60}s`;
+        const mm = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
+        const ss = String(s % 60).padStart(2, "0");
+        return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
     }
 
     // Latest focus-watcher warning ({text, at}) and the lifetime tally the
@@ -39,6 +46,7 @@ Singleton {
     property bool loaded: false
 
     signal gained(int xp)
+    signal sessionDone()
     signal levelUp(int level, string title)
     signal unlocked(var badge)
 
@@ -110,6 +118,9 @@ Singleton {
     }
 
     function start(minutes): void {
+        if (root.busy || root.active)
+            return;
+        root.busy = "starting";
         startProc.command = ["bash", root.script, "start", String(minutes)];
         startProc.running = true;
     }
@@ -117,13 +128,25 @@ Singleton {
     // Ending early. Not on the bar button -- Settings only, so it takes going
     // somewhere on purpose rather than one stray click on the countdown.
     function stop(): void {
+        if (root.busy || !root.active)
+            return;
+        root.busy = "stopping";
         stopProc.command = ["bash", root.script, "stop"];
         stopProc.running = true;
     }
 
+    // Never restarts one in flight: status can end a dead session, and killing
+    // it halfway through that would leave Firefox blocked.
     function refresh(): void {
-        statusProc.running = false;
-        statusProc.running = true;
+        if (!statusProc.running)
+            statusProc.running = true;
+    }
+
+    function finished(stderr, exitCode): void {
+        root.busy = "";
+        if (exitCode !== 0)
+            root.error = { text: stderr.trim() || Translation.tr("Study mode hit an error."), at: Math.floor(Date.now() / 1000) };
+        root.refresh();
     }
 
     // One second only while a session is live; the clock is idle otherwise.
@@ -159,12 +182,14 @@ Singleton {
                     root.active = d.active === true;
                     root.endsAt = d.endsAt ?? 0;
                     root.warn = d.warn ?? null;
-                    const oldPoints = root.points, oldLevel = root.level;
+                    const oldPoints = root.points, oldLevel = root.level, oldSessions = root.sessions;
                     const had = root.badges.filter(b => b.got).map(b => b.id);
                     root.stats = d.stats ?? {};
                     if (root.loaded) {
                         if (root.points > oldPoints)
                             root.gained(root.points - oldPoints);
+                        if (root.sessions > oldSessions)
+                            root.sessionDone();
                         if (root.level > oldLevel)
                             root.levelUp(root.level, root.title);
                         for (const b of root.badges)
@@ -182,11 +207,17 @@ Singleton {
 
     Process {
         id: startProc
-        onExited: root.refresh()
+        stderr: StdioCollector {
+            id: startErr
+        }
+        onExited: (exitCode) => root.finished(startErr.text, exitCode)
     }
 
     Process {
         id: stopProc
-        onExited: root.refresh()
+        stderr: StdioCollector {
+            id: stopErr
+        }
+        onExited: (exitCode) => root.finished(stopErr.text, exitCode)
     }
 }

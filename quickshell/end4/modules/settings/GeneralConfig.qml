@@ -32,7 +32,7 @@ ContentPage {
             wrapMode: Text.Wrap
             color: Appearance.colors.colSubtext
             font.pixelSize: Appearance.font.pixelSize.smaller
-            text: Translation.tr("Hides every open app, leaves Firefox on one blank tab and allows only your school sites. Nothing is closed — apps come back when the timer ends. Allowed sites live under studyMode.allowedSites in the config file.")
+            text: Translation.tr("Hides every open app and restarts Firefox (tabs kept) so only your school sites load. Nothing is closed — apps come back when the timer ends. Allowed sites live under studyMode.allowedSites in the config file.")
         }
 
         // The only way out short of a reboot or the terminal. Deliberately here
@@ -40,10 +40,12 @@ ContentPage {
         // somewhere on purpose, not one stray click on the countdown.
         RippleButtonWithIcon {
             visible: StudyMode.active
+            enabled: !StudyMode.busy
             Layout.fillWidth: true
             buttonRadius: Appearance.rounding.small
             materialIcon: "stop_circle"
-            mainText: Translation.tr("End study mode (%1 left)").arg(StudyMode.remainingText)
+            mainText: StudyMode.busy === "stopping" ? Translation.tr("Ending…")
+                : Translation.tr("End study mode (%1 left)").arg(StudyMode.remainingText)
             onClicked: StudyMode.stop()
         }
 
