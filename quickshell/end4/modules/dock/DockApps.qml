@@ -1,4 +1,5 @@
 pragma ComponentBehavior: Bound
+import qs
 import Qt5Compat.GraphicalEffects
 import QtQuick
 import QtQuick.Controls
@@ -24,12 +25,59 @@ Item {
     property bool buttonHovered: false
     property bool requestDockShow: previewPopup.show || dockMenu.visible
 
+    // Drag-to-pin/reorder. appId of the button being dragged, and of whichever
+    // button the pointer is currently over -- both TaskbarApps' lower-cased
+    // key, so they compare directly against pinnedApps entries.
+    property string draggingAppId: ""
+    property string dragHoverAppId: ""
+
     Layout.fillHeight: true
     Layout.topMargin: Appearance.sizes.hyprlandGapsOut
     implicitWidth: listView.implicitWidth
 
     function openMenu(button) {
         dockMenu.openFor(button.appToplevel, button.desktopEntry, root.popupCenterXForButton(button), root.QsWindow?.window?.height ?? 70);
+    }
+
+    function dragStart(appId) {
+        root.draggingAppId = appId;
+    }
+
+    // localX/localY are in button's own coordinates (a DragHandler centroid
+    // is always local to the Item it's attached to); mapped into listView's
+    // content coordinates, indexAt() gives back the button currently under
+    // the pointer.
+    function dragMove(button, localX, localY) {
+        const p = listView.mapFromItem(button, localX, localY);
+        const idx = listView.indexAt(p.x, p.y);
+        root.dragHoverAppId = (idx >= 0 && idx < TaskbarApps.apps.length) ? TaskbarApps.apps[idx].appId : "";
+    }
+
+    function dragEnd() {
+        if (root.dragHoverAppId && root.dragHoverAppId !== root.draggingAppId) {
+            root.reorder(root.draggingAppId, root.dragHoverAppId);
+        }
+        root.draggingAppId = "";
+        root.dragHoverAppId = "";
+    }
+
+    // Dropping onto a pinned icon pins (or reorders) draggedId next to it;
+    // dropping onto a running, unpinned icon -- the "regular section" -- just
+    // removes draggedId from pinnedApps, same as the menu's Unpin. Dragging
+    // one running icon onto another is a no-op, same as the real macOS Dock:
+    // that side of the divider has no persistent order to change.
+    function reorder(draggedId, targetId) {
+        const pinned = Config.options.dock.pinnedApps.slice();
+        const lower = s => s.toLowerCase();
+        const draggedIdx = pinned.findIndex(p => lower(p) === draggedId);
+        const targetIdx = pinned.findIndex(p => lower(p) === targetId);
+        if (draggedIdx === -1 && targetIdx === -1) return;
+
+        if (draggedIdx !== -1) pinned.splice(draggedIdx, 1);
+        const insertAt = pinned.findIndex(p => lower(p) === targetId);
+        if (insertAt !== -1) pinned.splice(insertAt, 0, draggedId);
+
+        Config.options.dock.pinnedApps = pinned;
     }
 
     function popupCenterXForButton(button) {
@@ -75,7 +123,7 @@ Item {
         id: previewPopup
         property var appTopLevel: root.lastHoveredButton?.appToplevel
 
-        property bool shouldShow: !dockMenu.visible && (popupMouseArea.containsMouse || root.buttonHovered) && appTopLevel && appTopLevel.toplevels && appTopLevel.toplevels.length > 0
+        property bool shouldShow: !dockMenu.visible && !GlobalStates.regionSelectorOpen && (popupMouseArea.containsMouse || root.buttonHovered) && appTopLevel && appTopLevel.toplevels && appTopLevel.toplevels.length > 0
 
         property bool show: false
         property real cachedCenterX: 0

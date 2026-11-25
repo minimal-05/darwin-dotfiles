@@ -19,12 +19,33 @@ DockButton {
     property bool appIsActive: appToplevel.toplevels.find(t => (t.activated == true)) !== undefined
 
     readonly property bool isSeparator: appToplevel.appId === "SEPARATOR"
+    readonly property bool isDragSource: appListRoot.draggingAppId !== "" && appListRoot.draggingAppId === appToplevel.appId
+    readonly property bool isDropTarget: appListRoot.draggingAppId !== "" && !root.isDragSource && appListRoot.dragHoverAppId === appToplevel.appId
     property var desktopEntry: AppSearch.lookup(appToplevel.appId)
     // The entry's icon is the app bundle's own path, which NSWorkspace always
     // resolves. guessIcon is for a window whose app qs-index-apps never saw.
     readonly property string iconName: root.desktopEntry?.icon ?? AppSearch.guessIcon(appToplevel.appId)
     enabled: !isSeparator
     implicitWidth: isSeparator ? 1 : implicitHeight - topInset - bottomInset
+    opacity: root.isDragSource ? 0.4 : 1
+
+    // Drag an icon onto a pinned one to pin/reorder it there; drag a pinned
+    // icon onto a running one -- the "regular section" -- to unpin it. Same
+    // gesture as the real macOS Dock. dragThreshold keeps a plain click from
+    // ever registering as a drag.
+    DragHandler {
+        id: dragHandler
+        target: null
+        enabled: !root.isSeparator
+        dragThreshold: 12
+        onActiveChanged: {
+            if (active) appListRoot.dragStart(root.appToplevel.appId);
+            else appListRoot.dragEnd();
+        }
+        onCentroidChanged: {
+            if (active) appListRoot.dragMove(root, centroid.position.x, centroid.position.y);
+        }
+    }
 
     Connections {
         target: DesktopEntries
@@ -89,6 +110,21 @@ DockButton {
         active: !isSeparator
         sourceComponent: Item {
             anchors.centerIn: parent
+
+            // A line in the gap before this icon, not a highlight on it: reorder()
+            // always inserts the dragged icon just before whatever isDropTarget
+            // names, so the line marks the actual landing spot rather than
+            // pointing at the icon being passed over.
+            Rectangle {
+                visible: root.isDropTarget
+                anchors.left: parent.left
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                anchors.leftMargin: -6
+                width: 2
+                radius: 1
+                color: Appearance.colors.colPrimary
+            }
 
             Loader {
                 id: iconImageLoader

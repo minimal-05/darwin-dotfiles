@@ -333,7 +333,7 @@ Singleton {
                 // the pointer to the last row of the output. macOS is less
                 // generous about the bottom edge, and a 2px target that only
                 // sometimes catches reads as a dock that only sometimes opens.
-                property real hoverRegionHeight: 20
+                property real hoverRegionHeight: 12
                 property bool pinnedOnStartup: false
                 property bool hoverToReveal: true // When false, only reveals on empty workspace
                 // Names as yabai spells them, which is what ToplevelManager

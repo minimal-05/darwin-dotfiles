@@ -66,15 +66,10 @@ Scope { // Scope
                     topMargin: dockRoot.reveal ? 0 : Config.options?.dock.hoverToReveal ? (dockRoot.implicitHeight - Config.options.dock.hoverRegionHeight) : (dockRoot.implicitHeight + 1)
                     horizontalCenter: parent.horizontalCenter
                 }
-                // ponytail: the reveal trigger and the dock's hit region used to be
-                // the width of the pill itself, so the dock only opened if you hit
-                // a ~400px strip in the middle of the bottom edge, and only stayed
-                // open while you were over that same strip. Span the window
-                // instead. The pill is centred by its own anchors and does not
-                // stretch with this, and the area around it stays transparent --
-                // macOS hit-tests a non-opaque window against its rendered alpha,
-                // so clicks there still pass through to whatever is underneath.
-                implicitWidth: dockRoot.width
+                // ponytail: the trigger is the pill's width, not the screen's. A
+                // full-width strip opened the dock whenever any app's own bottom
+                // edge (status bars, scrollbars, terminals) was in use.
+                implicitWidth: dockBackground.implicitWidth
                 hoverEnabled: true
 
                 Behavior on anchors.topMargin {
