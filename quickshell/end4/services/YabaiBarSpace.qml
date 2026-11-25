@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 
 import Quickshell
 import Quickshell.Cocoa
+import Quickshell.Io
 import QtQuick
 
 /**
@@ -65,6 +66,20 @@ Singleton {
         Reservation.right + root.gap,
         Reservation.bottom + root.gap
     ]
+
+    // A yabai restart wipes every setting and re-runs yabairc, which cannot know
+    // what the panels currently reserve -- it would seed a bar-height strip even
+    // when the shell is hidden, leaving a dead gap no window can use. So yabairc
+    // asks instead: this returns the external_bar value for the panels as they
+    // are right now, and re-applies the paddings in the same breath.
+    IpcHandler {
+        target: "yabai"
+
+        function externalBar(): string {
+            root.apply();
+            return `all:${Reservation.top}:${Reservation.bottom}`;
+        }
+    }
 
     function apply(): void {
         // One shell so the settings land as a batch; `command -v` keeps this
