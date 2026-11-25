@@ -86,6 +86,11 @@ Scope {
         function screenshot() {
             root.screenshot()
         }
+        // Escape hatch: if a selection ever gets stuck on screen there is
+        // otherwise no way out but restarting the shell.
+        function close() {
+            root.dismiss()
+        }
         function search() {
             root.search()
         }

@@ -6,7 +6,8 @@
                     {
                         "manipulators": [
                             {
-                                "description": "Change left_control to command+control+option; tap alone opens the overview.",
+                                "description": "Built-in keyboard: left_control is Super; tap alone opens the overview.",
+                                "type": "basic",
                                 "from": {
                                     "key_code": "left_control",
                                     "modifiers": {
@@ -24,10 +25,99 @@
                                         ]
                                     }
                                 ],
-                                "type": "basic",
                                 "to_if_alone": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc search workspacesToggle"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-ipc search workspacesToggle"
+                                    }
+                                ],
+                                "conditions": [
+                                    {
+                                        "type": "device_if",
+                                        "identifiers": [
+                                            {
+                                                "is_built_in_keyboard": true
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "description": "External keyboard: caps_lock is Super; tap alone opens the overview.",
+                                "type": "basic",
+                                "from": {
+                                    "key_code": "caps_lock",
+                                    "modifiers": {
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "key_code": "left_command",
+                                        "modifiers": [
+                                            "left_control",
+                                            "left_option"
+                                        ]
+                                    }
+                                ],
+                                "to_if_alone": [
+                                    {
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-ipc search workspacesToggle"
+                                    }
+                                ],
+                                "conditions": [
+                                    {
+                                        "type": "device_unless",
+                                        "identifiers": [
+                                            {
+                                                "is_built_in_keyboard": true
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "description": "Built-in keyboard: caps_lock is a real control.",
+                                "type": "basic",
+                                "from": {
+                                    "key_code": "caps_lock",
+                                    "modifiers": {
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "key_code": "left_control"
+                                    }
+                                ],
+                                "conditions": [
+                                    {
+                                        "type": "device_if",
+                                        "identifiers": [
+                                            {
+                                                "is_built_in_keyboard": true
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "description": "right_command is a real control on any keyboard.",
+                                "type": "basic",
+                                "from": {
+                                    "key_code": "right_command",
+                                    "modifiers": {
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "key_code": "left_control"
                                     }
                                 ]
                             }
@@ -52,12 +142,12 @@
                                 },
                                 "to": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-brightness down"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-brightness down"
                                     }
                                 ],
                                 "to_after_key_up": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-brightness release"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-brightness release"
                                     }
                                 ]
                             },
@@ -77,12 +167,12 @@
                                 },
                                 "to": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-brightness up"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-brightness up"
                                     }
                                 ],
                                 "to_after_key_up": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-brightness release"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-brightness release"
                                     }
                                 ]
                             },
@@ -102,7 +192,7 @@
                                 },
                                 "to": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-volume mute"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-volume mute"
                                     }
                                 ]
                             },
@@ -122,12 +212,12 @@
                                 },
                                 "to": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-volume down"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-volume down"
                                     }
                                 ],
                                 "to_after_key_up": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-volume release"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-volume release"
                                     }
                                 ]
                             },
@@ -147,12 +237,12 @@
                                 },
                                 "to": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-volume up"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-volume up"
                                     }
                                 ],
                                 "to_after_key_up": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-volume release"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-volume release"
                                     }
                                 ]
                             },
@@ -172,12 +262,12 @@
                                 },
                                 "to": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-volume up"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-volume up"
                                     }
                                 ],
                                 "to_after_key_up": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-volume release"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-volume release"
                                     }
                                 ]
                             },
@@ -197,12 +287,12 @@
                                 },
                                 "to": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-volume down"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-volume down"
                                     }
                                 ],
                                 "to_after_key_up": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-volume release"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-volume release"
                                     }
                                 ]
                             },
@@ -222,14 +312,14 @@
                                 },
                                 "to": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-volume mute"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-volume mute"
                                     }
                                 ]
                             }
                         ]
                     },
                     {
-                        "description": "Cmd+Shift+3/4 screenshot through Quickshell (macOS never sees the key, so its own capture never runs)",
+                        "description": "Cmd+Shift+3/4/5 screenshot and record through Quickshell (macOS never sees the key, so its own capture never runs)",
                         "manipulators": [
                             {
                                 "type": "basic",
@@ -248,7 +338,7 @@
                                 },
                                 "to": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc region fullscreen"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-ipc region fullscreen"
                                     }
                                 ]
                             },
@@ -269,7 +359,61 @@
                                 },
                                 "to": [
                                     {
-                                        "shell_command": "/Users/tylerearly/Projects/quickshell-macos/bin/qs-ipc region screenshot"
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-ipc region screenshot"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "basic",
+                                "from": {
+                                    "key_code": "5",
+                                    "modifiers": {
+                                        "mandatory": [
+                                            "command",
+                                            "shift"
+                                        ],
+                                        "optional": [
+                                            "control",
+                                            "caps_lock"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "shell_command": "/Users/you/Projects/quickshell-macos/bin/qs-ipc screenRecord toggle"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "description": "Extended display: ` (keycode 0x32) types \\",
+                        "manipulators": [
+                            {
+                                "description": "ponytail: 'extended display' = the Anker dock is plugged in (the LG hangs off it); Karabiner can't see displays.",
+                                "type": "basic",
+                                "from": {
+                                    "key_code": "grave_accent_and_tilde",
+                                    "modifiers": {
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "key_code": "backslash"
+                                    }
+                                ],
+                                "conditions": [
+                                    {
+                                        "type": "device_exists_if",
+                                        "identifiers": [
+                                            {
+                                                "vendor_id": 6353,
+                                                "product_id": 20521
+                                            }
+                                        ]
                                     }
                                 ]
                             }
@@ -279,28 +423,7 @@
             },
             "name": "Default profile",
             "selected": true,
-            "simple_modifications": [
-                {
-                    "from": {
-                        "key_code": "caps_lock"
-                    },
-                    "to": [
-                        {
-                            "key_code": "left_control"
-                        }
-                    ]
-                },
-                {
-                    "from": {
-                        "key_code": "right_command"
-                    },
-                    "to": [
-                        {
-                            "key_code": "left_control"
-                        }
-                    ]
-                }
-            ],
+            "simple_modifications": [],
             "virtual_hid_keyboard": {
                 "keyboard_type_v2": "jis"
             }

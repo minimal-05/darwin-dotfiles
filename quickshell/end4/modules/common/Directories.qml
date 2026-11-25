@@ -44,6 +44,10 @@ Singleton {
     // the thumbnail times out. Hidden names are captures still being written.
     property string captureShelf: "/tmp/quickshell/media/shelf"
     property string captureShelfThumbs: "/tmp/quickshell/media/shelf-thumbs"
+    // QuickLook previews for the Files grid. Cache, not tmp: these are keyed
+    // by path+mtime and are expensive to rebuild, so they should survive a
+    // reboot the way the freedesktop thumbnails next to them do.
+    property string finderThumbs: FileUtils.trimFileProtocol(`${Directories.genericCache}/finder-thumbs`)
     property string wallpaperSwitchScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/colors/switchwall.sh`)
     property string defaultAiPrompts: Quickshell.shellPath("defaults/ai/prompts")
     property string userAiPrompts: FileUtils.trimFileProtocol(`${Directories.shellConfig}/ai/prompts`)
@@ -51,6 +55,8 @@ Singleton {
     property string aiChats: FileUtils.trimFileProtocol(`${Directories.state}/user/ai/chats`)
     property string recordScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/videos/record.sh`)
     property string brightnessScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/macos/brightness.py`)
+    property string putBackScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/macos/put-back.py`)
+    property string studyScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/study/study-mode.sh`)
     property string networkScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/macos/network.sh`)
     property string userAvatarPathAccountsService: FileUtils.trimFileProtocol(`/var/lib/AccountsService/icons/${SystemInfo.username}`)
     property string userAvatarPathRicersAndWeirdSystems: FileUtils.trimFileProtocol(`${Directories.home}.face`)

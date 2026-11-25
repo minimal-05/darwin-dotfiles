@@ -144,7 +144,10 @@ Singleton {
     }
 
     function biggestWindowForWorkspace(workspaceId) {
-        const windowsInThisWorkspace = HyprlandData.windowList.filter(w => w.workspace.id == workspaceId);
+        // Hidden windows do not count. An app hidden with Cmd+H (or by study
+        // mode) is not on screen, so leaving its icon in the workspace
+        // indicator advertises something you cannot see.
+        const windowsInThisWorkspace = HyprlandData.windowList.filter(w => w.workspace.id == workspaceId && !w.hidden);
         return windowsInThisWorkspace.reduce((maxWin, win) => {
             const maxArea = (maxWin?.size?.[0] ?? 0) * (maxWin?.size?.[1] ?? 0);
             const winArea = (win?.size?.[0] ?? 0) * (win?.size?.[1] ?? 0);
@@ -216,6 +219,17 @@ Singleton {
     // permanently active. yabai has no special workspaces, so the empty name is
     // both the honest answer and the one that reads correctly.
     //
+    // `is-hidden` is the app-hidden flag (Cmd+H). NOT `is-visible`, which only
+    // means "on a space you are currently looking at" -- keying on that made
+    // every window on another space vanish from the bar and the overview.
+    //
+    // Files.app and Settings.app (qs-make-app) run a copy of the binary named
+    // "quickshell-engine", and every such process owns an invisible root
+    // surface that yabai reports as a real, untitled window. It has nothing to
+    // screencopy, so the overview drew it as a tile with a missing-texture
+    // thumbnail labelled "[quickshell-engine]". Untitled engine windows are
+    // dropped here; titled ones are the mini-apps' actual windows and stay.
+    //
     // The three queries feed one jq (-s slurps them into [windows, spaces,
     // displays]) that emits all four shapes at once: 5 processes per refresh
     // where the per-shape pipelines cost about 38. Layers stay a constant
@@ -226,7 +240,7 @@ Singleton {
             + `def tohex: [recurse(if . >= 16 then ./16|floor else empty end) | . % 16] | reverse | map(if . < 10 then 48 + . else 87 + . end) | implode; `
             + `def ws: {id: .index, name: (.index|tostring), monitor: ("Display-" + (.display|tostring)), monitorID: (.display - 1), windows: (.windows|length), hasfullscreen: false, lastwindow: "", lastwindowtitle: ""}; `
             + `. as [$w, $s, $d] | {`
-            + `windows: [$w[] | select(.app != "quickshell") | {address: ("0x" + (.id|tohex)), mapped: true, hidden: (."is-minimized" // false), at: [(.frame.x|floor), (.frame.y|floor)], size: [(.frame.w|floor), (.frame.h|floor)], workspace: {id: .space, name: (.space|tostring)}, floating: (."is-floating" // false), monitor: (.display - 1), class: .app, initialClass: .app, title: .title, initialTitle: .title, pid: .pid, focusHistoryID: 0, fullscreen: (."is-native-fullscreen" // false)}], `
+            + `windows: [$w[] | select(.app != "quickshell") | select(.app != "quickshell-engine" or (.title // "") != "") | {address: ("0x" + (.id|tohex)), mapped: true, hidden: ((."is-minimized" == true) or (."is-hidden" == true)), at: [(.frame.x|floor), (.frame.y|floor)], size: [(.frame.w|floor), (.frame.h|floor)], workspace: {id: .space, name: (.space|tostring)}, floating: (."is-floating" // false), monitor: (.display - 1), class: .app, initialClass: .app, title: .title, initialTitle: .title, pid: .pid, focusHistoryID: 0, fullscreen: (."is-native-fullscreen" // false)}], `
             + `workspaces: [$s[] | ws], `
             + `activeWorkspace: (([$s[] | select(."has-focus")] | .[0]) as $a | if $a then ($a | ws) else null end), `
             + `monitors: [$d[] | . as $dd | {id: (.index - 1), name: ("Display-" + (.index|tostring)), description: ("Display " + (.index|tostring)), width: (.frame.w|floor), height: (.frame.h|floor), x: (.frame.x|floor), y: (.frame.y|floor), activeWorkspace: (([$s[] | select(.display == $dd.index and ."is-visible")] | .[0] | {id: .index, name: (.index|tostring)}) // {id:1,name:"1"}), specialWorkspace: {id: 0, name: ""}, focused: ."has-focus", scale: 1.0, transform: 0, disabled: false}]`

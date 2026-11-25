@@ -47,7 +47,11 @@ Scope {
 
         Loader {
             id: sidebarContentLoader
-            active: GlobalStates.sidebarRightOpen || Config?.options.sidebar.keepRightSidebarLoaded
+            // Stays loaded once built, like SidebarLeft, so content doesn't
+            // vanish mid-close while the native panel is still fading/scaling out.
+            property bool builtOnce: false
+            active: GlobalStates.sidebarRightOpen || Config?.options.sidebar.keepRightSidebarLoaded || builtOnce
+            onLoaded: builtOnce = true
             anchors {
                 fill: parent
                 margins: Appearance.sizes.hyprlandGapsOut

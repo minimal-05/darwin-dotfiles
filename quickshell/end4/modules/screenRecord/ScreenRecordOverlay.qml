@@ -8,6 +8,7 @@ import qs.modules.common.widgets
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Io
 import Quickshell.Wayland
 
 /**
@@ -67,6 +68,18 @@ Scope {
             // way the bar's snip button reaches it.
             Quickshell.execDetached(["qs", "-p", Quickshell.shellPath(""), "ipc", "call", "region", "record"]);
             break;
+        }
+    }
+
+    // Karabiner's cmd+shift+5. Same as clicking the bar button.
+    IpcHandler {
+        target: "screenRecord"
+
+        function toggle(): void {
+            if (ScreenRecording.recording)
+                ScreenRecording.stop();
+            else
+                GlobalStates.screenRecordOverlayOpen = !GlobalStates.screenRecordOverlayOpen;
         }
     }
 
@@ -224,7 +237,12 @@ Scope {
                         symbol: "screenshot_region"
                         tooltipText: Translation.tr("Record a selected portion")
                         selected: root.mode === ScreenRecordOverlay.Mode.Region
-                        onClicked: root.mode = ScreenRecordOverlay.Mode.Region
+                        // Straight to the drag selector, as cmd+shift+5 does: the
+                        // dim here has no drag, and a press on it closes the picker.
+                        onClicked: {
+                            root.mode = ScreenRecordOverlay.Mode.Region;
+                            root.start();
+                        }
                     }
 
                     Separator {}

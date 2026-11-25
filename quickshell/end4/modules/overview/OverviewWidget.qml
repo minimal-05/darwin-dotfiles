@@ -255,7 +255,9 @@ Item {
                             const address = HyprlandData.addressForToplevel(toplevel)
                             var win = windowByAddress[address]
                             const inWorkspaceGroup = (root.workspaceGroup * root.workspacesShown < win?.workspace?.id && win?.workspace?.id <= (root.workspaceGroup + 1) * root.workspacesShown)
-                            return inWorkspaceGroup;
+                            // A hidden window has nothing to show and nothing to
+                            // switch to, so it does not get a tile.
+                            return inWorkspaceGroup && !win?.hidden;
                         })
                     }
                 }

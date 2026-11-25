@@ -179,6 +179,10 @@ Item { // Bar content region
                     Layout.alignment: Qt.AlignVCenter
                 }
 
+                StudyModeButton {
+                    Layout.alignment: Qt.AlignVCenter
+                }
+
                 // The frontmost app's menus, hover to drop them.
                 AppMenus {
                     Layout.alignment: Qt.AlignVCenter

@@ -23,6 +23,25 @@ Scope {
 
     property var windows: []
 
+    // A freshly launched process becomes the active application as a normal
+    // side effect of just being born -- nothing the user did caused it. That
+    // transition used to be indistinguishable from the one the Connections
+    // below actually cares about (a warm, idle process getting re-activated),
+    // so it raced whatever a cold start was ALREADY in the middle of showing
+    // on purpose: a "Choose file" click starts the process hidden and polls
+    // pickWallpaper() until the window exists, and the birth-activation fired
+    // first, found nothing visible yet, and showed a plain window nobody
+    // asked for right alongside the picker that arrived a moment later. A
+    // real re-activation (the Dock icon, days later) always lands well after
+    // this window closes; the one that fires within it is always self-inflicted.
+    property bool ignoreEarlyActivation: true
+
+    Timer {
+        interval: 3000
+        running: true
+        onTriggered: root.ignoreEarlyActivation = false
+    }
+
     Component.onCompleted: {
         MaterialThemeLoader.reapplyTheme();
         // Started hidden by the login agent so the first real open is warm.
@@ -53,7 +72,15 @@ Scope {
         if (path.length > 0)
             win.navigate(path);
         if (show)
-            win.present();
+            // One more turn of the event loop before the window is actually
+            // shown: pickMode is set via an alias forwarding to a child item
+            // (content.pickMode), and the title binding that yabai reads at
+            // window creation depends on it. Showing the window in the very
+            // same tick as creating it occasionally raced that forwarding, so
+            // a fresh picker window was sometimes still titled "Files" at the
+            // instant yabai looked, and a rule meant only for a plain window
+            // (see src/tools/qs-finder) caught it instead of the picker's own.
+            Qt.callLater(() => win.present());
         return win;
     }
 
@@ -88,7 +115,7 @@ Scope {
         target: Qt.application
 
         function onStateChanged(): void {
-            if (Qt.application.state === Qt.ApplicationActive && root.windows.every(w => !w.visible))
+            if (!root.ignoreEarlyActivation && Qt.application.state === Qt.ApplicationActive && root.windows.every(w => !w.visible))
                 root.present();
         }
     }
@@ -129,12 +156,25 @@ Scope {
         // a Finder window in all but name, so it comes here instead; picking an
         // image calls switchwall back the same way the wallpaper grid does.
         //
-        // Always a window of its own, born knowing it is a picker: it cannot
-        // hijack one you are browsing in, and yabai reads a window's title when
-        // the window is created, so a window that becomes a picker afterwards is
-        // one yabai has already decided to tile.
+        // A picker gets a window of its own, born knowing it is a picker: it
+        // cannot hijack one you are browsing in, and yabai reads a window's
+        // title when the window is created, so a window that becomes a picker
+        // afterwards is one yabai has already decided to tile.
+        //
+        // Idempotent on purpose: qs-finder retries this call every 250ms until
+        // one lands (a cold start has nothing to wait on otherwise), and if the
+        // first try actually landed but reported failure on the way out, the
+        // retry arrived anyway -- two calls, one picker. Re-showing whichever
+        // picker is already open absorbs that instead of opening a second one.
         function pickWallpaper(mode: string): void {
-            root.newWindow("", true, mode === "light" ? "light" : "dark");
+            const pickerMode = mode === "light" ? "light" : "dark";
+            const existing = root.windows.find(w => w.pickMode.length > 0);
+            if (existing) {
+                existing.pickMode = pickerMode;
+                existing.present();
+                return;
+            }
+            root.newWindow("", true, pickerMode);
         }
 
         // Bind this to a key if you want one press to show and the next to hide.

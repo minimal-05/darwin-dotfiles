@@ -143,8 +143,15 @@ Singleton {
     }
 
     // Thumbnail generation
+    // The size bucket the on-disk thumbnails were last written into. Consumers
+    // must read the same one: ThumbnailImage otherwise derives it from its own
+    // sourceSize, which is 0x0 until the image loads, so it resolved to "normal"
+    // and looked for files the generator had written into "large".
+    property string thumbnailSizeName: "large"
+
     function generateThumbnail(size: string) {
         if (!["normal", "large", "x-large", "xx-large"].includes(size)) throw new Error("Invalid thumbnail size");
+        root.thumbnailSizeName = size;
         thumbgenProc.directory = root.directory
         thumbgenProc.running = false
         thumbgenProc.command = [

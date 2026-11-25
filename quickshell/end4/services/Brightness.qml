@@ -112,7 +112,15 @@ Singleton {
             }
         }
         onMultipliedBrightnessChanged: {
-            if (monitor.animationEnabled) syncBrightness();
+            // animateChanges, not animationEnabled: the latter is not a property
+            // of anything, so this read was always undefined and every change
+            // took the debounce below. The animation emits a new value every
+            // frame (~16ms) and setTimer wants 30ms of quiet, so the timer was
+            // restarted forever and the backlight was only written once the
+            // value stopped moving -- a held key changed nothing until release.
+            // Animated changes go straight to syncBrightness, which does its own
+            // one-write-in-flight coalescing and so tracks the ramp live.
+            if (monitor.animateChanges) syncBrightness();
             else setTimer.restart();
         }
 
@@ -122,7 +130,7 @@ Singleton {
             // monitor takes the DisplayServices path via brightness.py.
             isDdc = false;
             busNum = "";
-            initProc.command = ["python3", Directories.brightnessScriptPath, "get"];
+            initProc.command = ["python3", "-E", "-S", Directories.brightnessScriptPath, "get"];
             initProc.running = true;
         }
 
@@ -161,7 +169,12 @@ Singleton {
             // 0 really means backlight off, matching what native macOS does at
             // the bottom of the F1 range. The old brightnessctl "0% -> 1%" guard
             // is dropped: this is recoverable here, F2 brings the panel back.
-            setProc.exec(["python3", Directories.brightnessScriptPath, "set", brightnessValue.toFixed(4)]);
+            // -E -S: the script imports only ctypes and sys, and skipping site
+            // and the environment takes this framework python's startup from
+            // ~112ms to ~82ms. Startup is the whole cost of a write -- the
+            // DisplayServices call itself is free -- and during a held key these
+            // run back to back, so it is the ramp's update rate.
+            setProc.exec(["python3", "-E", "-S", Directories.brightnessScriptPath, "set", brightnessValue.toFixed(4)]);
         }
 
         function setBrightness(value: real): void {
@@ -233,7 +246,7 @@ Singleton {
     Timer {
         id: brightnessRamp
 
-        readonly property int startDelay: 400 // hold this long before repeating
+        readonly property int startDelay: 250 // hold this long before repeating
         property int ticks: 0
 
         repeat: true

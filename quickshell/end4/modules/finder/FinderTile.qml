@@ -1,11 +1,13 @@
 import qs.modules.common
+import qs.modules.common.functions
 import qs.modules.common.widgets
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 
 /**
- * One tile in icon view: a thumbnail for images, the type glyph for everything
- * else, and the name underneath.
+ * One tile in icon view: a thumbnail for images and apps, the type glyph for
+ * everything else, and the name underneath.
  */
 Rectangle {
     id: root
@@ -13,11 +15,14 @@ Rectangle {
     required property var modelData
     required property int index
     property bool selected: false
+    // The paths a drag starting on this tile should carry -- the whole
+    // selection when this tile is part of one, else just this tile.
+    property var dragPaths: [modelData.path]
 
     readonly property string path: root.modelData.path
     readonly property bool isDir: root.modelData.isDir
 
-    signal clicked
+    signal clicked(int modifiers)
     signal activated
     signal contextRequested(real sx, real sy)
 
@@ -27,7 +32,7 @@ Rectangle {
     Drag.dragType: Drag.Automatic
     Drag.supportedActions: Qt.CopyAction
     Drag.mimeData: ({
-            "text/uri-list": "file://" + encodeURI(root.modelData.path)
+            "text/uri-list": root.dragPaths.map(p => "file://" + encodeURI(p)).join("\r\n")
         })
 
     Behavior on color {
@@ -40,52 +45,27 @@ Rectangle {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 6
-        spacing: 4
+        anchors.margins: 4
+        spacing: 2
 
-        Item {
+        FinderIcon {
             Layout.fillWidth: true
             Layout.fillHeight: true
-
-            // Real thumbnails for images only.
-            // ponytail: no QuickLook previews for pdfs and video -- qlmanage is a
-            // subprocess per file, and a folder of them would cost more than the
-            // entire window does. Worth adding behind a cache if it's missed.
-            Image {
-                id: thumbnail
-
-                anchors.centerIn: parent
-                width: Math.min(implicitWidth, parent.width)
-                height: Math.min(implicitHeight, parent.height)
-                visible: root.modelData.isImage && status === Image.Ready
-                source: root.modelData.isImage ? `file://${root.modelData.path}` : ""
-                sourceSize.width: 128
-                sourceSize.height: 128
-                fillMode: Image.PreserveAspectFit
-                asynchronous: true
-                cache: true
-            }
-
-            MaterialSymbol {
-                anchors.centerIn: parent
-                visible: !thumbnail.visible
-                text: root.modelData.icon
-                iconSize: 44
-                fill: root.isDir ? 1 : 0
-                color: root.selected ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colPrimary
-            }
+            Layout.margins: 2
+            modelData: root.modelData
+            selected: root.selected
         }
 
         StyledText {
             Layout.fillWidth: true
-            Layout.preferredHeight: 30
+            Layout.preferredHeight: 24
             text: root.modelData.name
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignTop
             wrapMode: Text.Wrap
             elide: Text.ElideMiddle
             maximumLineCount: 2
-            font.pixelSize: Appearance.font.pixelSize.smaller
+            font.pixelSize: Appearance.font.pixelSize.smallest
             color: root.selected ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1
         }
     }
@@ -126,12 +106,11 @@ Rectangle {
             if (mouse.button === Qt.RightButton) {
                 // Scene coordinates: the menu overlay fills the window.
                 const at = root.mapToItem(null, mouse.x, mouse.y);
-                root.clicked();
                 root.contextRequested(at.x, at.y);
                 return;
             }
             if (!mouseArea.dragStarted)
-                root.clicked();
+                root.clicked(mouse.modifiers);
         }
         onDoubleClicked: root.activated()
     }

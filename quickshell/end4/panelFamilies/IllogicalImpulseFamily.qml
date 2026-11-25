@@ -17,28 +17,33 @@ import qs.modules.regionSelector
 import qs.modules.screenCorners
 import qs.modules.screenRecord
 import qs.modules.sessionScreen
+import qs.modules.studyMode
 import qs.modules.sidebarLeft
 import qs.modules.sidebarRight
 import qs.modules.overlay
 import qs.modules.wallpaperSelector
 
+// Fusion mode (services/FusionMode.qml) keeps only screenshots, the lock screen
+// and the volume/brightness OSD -- the keys are grabbed by Karabiner, so
+// without the OSD a volume press would give no feedback at all.
 Scope {
     PanelLoader { component: Bar {} }
     PanelLoader { component: Background {} }
-    PanelLoader { component: CaptureShelf {} }
+    PanelLoader { keepInFusion: true; component: CaptureShelf {} }
     PanelLoader { component: Cheatsheet {} }
     PanelLoader { extraCondition: Config.options.dock.enable; component: Dock {} }
-    PanelLoader { component: Lock {} }
+    PanelLoader { keepInFusion: true; component: Lock {} }
     PanelLoader { component: MediaControls {} }
     PanelLoader { component: NotificationPopup {} }
-    PanelLoader { component: OnScreenDisplay {} }
+    PanelLoader { keepInFusion: true; component: OnScreenDisplay {} }
     PanelLoader { component: OnScreenKeyboard {} }
     PanelLoader { component: Overlay {} }
     PanelLoader { component: Overview {} }
-    PanelLoader { component: RegionSelector {} }
+    PanelLoader { keepInFusion: true; component: RegionSelector {} }
     PanelLoader { component: ScreenCorners {} }
-    PanelLoader { component: ScreenRecordOverlay {} }
+    PanelLoader { keepInFusion: true; component: ScreenRecordOverlay {} }
     PanelLoader { component: SessionScreen {} }
+    PanelLoader { component: StudyModePanel {} }
     PanelLoader { component: SidebarLeft {} }
     PanelLoader { component: SidebarRight {} }
     PanelLoader { component: WallpaperSelector {} }

@@ -4,15 +4,32 @@ ctrl + alt + cmd - g : ~/.config/skhd/firefox-smart-launch.sh
 ctrl + alt + cmd - t : /Applications/Spotify.app/Contents/MacOS/Spotify --single-instance -d ~ &>/dev/null
 
 ##yabai on/off
-ctrl + alt + cmd - o : yabai --stop-service
-ctrl + alt + cmd - n : yabai --start-service
+# yabai's own --start-service/--stop-service are hardcoded to the label
+# com.koekeishiya.yabai, which is not what runs here: this machine loads yabai
+# from ~/Library/LaunchAgents/com.asmvik.yabai.plist. So both flags were no-ops
+# -- bootout could not find the job, and --start-service would have installed a
+# second, competing agent. Drive the real label instead.
+#
+# bootout, not `launchctl kill`: KeepAlive restarts yabai on a crash or a
+# non-zero exit, so only unloading the job actually stops it.
+#
+# Exactly one of bootstrap/kickstart, never both. This plist sets RunAtLoad, so
+# bootstrap already starts yabai -- chaining a kickstart onto it (the dance
+# bin/qs-open does, for a plist that does not) races a second instance, which
+# exits because the first holds the mach port, and launchd then sees the job's
+# process gone with a clean status and KeepAlive's SuccessfulExit=false leaves
+# it dead. So: loaded -> kickstart, not loaded -> bootstrap.
+ctrl + alt + cmd - o : launchctl bootout gui/$(id -u)/com.asmvik.yabai
+ctrl + alt + cmd - n : launchctl print gui/$(id -u)/com.asmvik.yabai >/dev/null 2>&1 && launchctl kickstart gui/$(id -u)/com.asmvik.yabai || launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.asmvik.yabai.plist
 
 
 ## toggle window fullscreen zoom
 ctrl + alt + cmd - f : yabai -m window --toggle zoom-fullscreen
 
-#locking the computer (starts the screensaver = custom lock screen)
-ctrl + alt + cmd - l : open /System/Library/CoreServices/ScreenSaverEngine.app
+#locking the computer (native display sleep -- password/Touch ID required to
+#wake, since "require password immediately after sleep" is on; the classic
+#CGSession -suspend trick no longer exists on this macOS version)
+ctrl + alt + cmd - l : /usr/bin/pmset displaysleepnow
 
 # moving spaces
 ctrl + alt + cmd - 1 : yabai -m space --focus 1
@@ -39,4 +56,10 @@ ctrl + alt + cmd + shift - 9 : yabai -m window --space 9
 ctrl + alt + cmd + shift - 0 : yabai -m window --space 10
 
 # quickshell settings window
-ctrl + alt + cmd - i        : /Users/tylerearly/Projects/quickshell-macos/bin/qs-settings
+ctrl + alt + cmd - i        : ~/Projects/quickshell-macos/bin/qs-settings
+# The shell binds its own chords natively (Carbon hot keys) and stands aside
+# for any chord skhd holds here, so only bind in one place.
+ctrl + alt + cmd - e        : ~/Projects/quickshell-macos/bin/qs-finder
+ctrl + alt + cmd - y        : ~/Projects/quickshell-macos/bin/qs-toggle
+# study tracker (levels, heatmap, badges)
+ctrl + alt + cmd - s        : ~/Projects/quickshell-macos/bin/qs ipc call studyMode tracker

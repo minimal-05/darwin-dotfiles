@@ -96,6 +96,30 @@ case "${type_flag:-auto}" in
     *)                  scheme=tonalspot ;;   # "auto" and anything unknown
 esac
 
+# ---- one switchwall at a time --------------------------------------------
+# Everything below is a read-modify-write: the image is *read* from
+# background.wallpaperPath, then the desktop picture, that same config key and
+# colors.json are all written. Two runs overlapping -- which is just clicking a
+# Random wallpaper button twice -- interleave those, and the loser's config edit
+# is dropped while its desktop picture write survives. That is exactly how
+# background.wallpaperPath ends up naming a different image than the one macOS
+# is showing, and since the shell paints its own background over the desktop,
+# the split only becomes visible on the lock screen.
+#
+# mkdir is the atomic test-and-set every POSIX shell already has; macOS ships no
+# flock(1). Queue rather than bail: the last click should still be the one that
+# wins.
+LOCK_DIR="${TMPDIR:-/tmp}/switchwall.lock"
+for _ in $(seq 1 60); do
+    mkdir "$LOCK_DIR" 2>/dev/null && break
+    # Older than two minutes is a crashed run holding the door, not a live one.
+    if [ -n "$(find "$LOCK_DIR" -maxdepth 0 -mmin +2 2>/dev/null)" ]; then
+        rmdir "$LOCK_DIR" 2>/dev/null
+    fi
+    sleep 1
+done
+trap 'rmdir "$LOCK_DIR" 2>/dev/null' EXIT
+
 # ---- choose the image ----------------------------------------------------
 current_wallpaper() {
     osascript -e 'tell application "System Events" to get picture of current desktop' 2>/dev/null

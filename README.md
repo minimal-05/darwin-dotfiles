@@ -6,13 +6,16 @@ macOS desktop config: yabai + skhd for tiling, JankyBorders, and
 ## Install
 
 ```sh
-git clone https://github.com/minimal-05/darwin-dotfiles.git ~/.config-new
-# ~/.config usually exists already — merge rather than clobber:
-rsync -a ~/.config-new/ ~/.config/ && rm -rf ~/.config-new
-~/.config/install.sh
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/minimal-05/darwin-dotfiles/main/install.sh)"
 ```
 
-Idempotent — re-run after pulling. `--no-deps` skips Homebrew.
+From a bare Apple silicon Mac: installs Homebrew, puts this repo in `~/.config`
+(anything in the way goes to `~/.config-backup-<date>`), installs the
+[Brewfile](Brewfile), builds the shell, links the home files, applies
+[macos.sh](macos.sh) and loads the agents. It ends with the permissions only you
+can grant. Sign in to the App Store first if you want its apps.
+
+Idempotent — re-run `~/.config/install.sh` after pulling. `--no-deps` skips Homebrew.
 
 ## Layout
 
@@ -24,6 +27,8 @@ borders/        active-window border
 kitty/ nvim/    terminal and editor
 btop/ starship.toml
 firefox-autoconfig/
+home/           .zshrc and .zprofile (linked); shell, VSCodium and shortcut settings
+Brewfile        packages and apps        macos.sh   system and Homerow settings
 ```
 
 The shell itself is a separate repo, cloned by `install.sh`:

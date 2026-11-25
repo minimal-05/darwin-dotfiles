@@ -145,6 +145,9 @@ Scope {
                     readonly property string fileUri: `file://${encodeURI(card.filePath)}`
                     readonly property string thumbUri: `file://${encodeURI(Directories.captureShelfThumbs)}/${encodeURIComponent(card.fileName)}.png`
                     property bool posterDone: false
+                    // Set once a platform drag for this card has finished, however it
+                    // ended. A used capture is never filed.
+                    property bool dragged: false
 
                     implicitWidth: root.cardWidth
                     implicitHeight: root.cardHeight
@@ -166,9 +169,19 @@ Scope {
                             "text/uri-list": card.fileUri
                         })
                     Drag.imageSource: card.isVideo ? (card.posterDone ? card.thumbUri : "") : card.fileUri
-                    // Anything that refuses the drop answers IgnoreAction, and the
-                    // card is left alone to time out normally.
+                    // A capture that has been dragged out has been used, so it
+                    // must never also be filed. It was: the receiving app got the
+                    // file and the linger timer then moved a second, permanent
+                    // copy into Pictures/Screenshots. An accepted drop answers
+                    // with a real action and goes immediately; a non-Qt receiver
+                    // (a terminal, say) can take the drop and still answer
+                    // IgnoreAction, so any finished drag marks the card used and
+                    // the timer discards it instead of keeping it.
+                    // ponytail: a drag released over nothing is indistinguishable
+                    // from a refused one here, so it is discarded too. Track the
+                    // drop position if a mis-drop ever needs to survive.
                     Drag.onDragFinished: dropAction => {
+                        card.dragged = true;
                         if (dropAction !== Qt.IgnoreAction)
                             root.discard(card.filePath);
                     }
@@ -213,7 +226,7 @@ Scope {
                         // Only once it is out of sight: moving the file is what
                         // destroys this delegate.
                         ScriptAction {
-                            script: root.keep(card.filePath)
+                            script: card.dragged ? root.discard(card.filePath) : root.keep(card.filePath)
                         }
                     }
 
