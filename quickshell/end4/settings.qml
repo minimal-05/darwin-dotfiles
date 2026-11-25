@@ -75,7 +75,10 @@ ApplicationWindow {
         close.accepted = false;
         root.hide();
     }
-    title: "illogical-impulse Settings"
+    // Matches finder.qml's "Files": TaskbarApps groups this mini-app's window
+    // by title (see the comment in TaskbarApps.qml), so the title has to equal
+    // the dock's pinned entry name, not the app's old upstream branding.
+    title: "Settings"
 
     IpcHandler {
         target: "settings"
